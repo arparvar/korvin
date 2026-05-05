@@ -1,0 +1,26 @@
+# Secrets and credentials — never index
+config.json
+.env
+*.env
+/etc/korvin.env
+
+# Runtime data — contains conversation history and logs
+data/
+logs/
+
+# Voice recordings
+*.wav
+*.ogg
+
+# Python artifacts
+venv/
+__pycache__/
+*.pyc
+*.sqlite
+*.sqlite3
+
+# Node artifacts
+node_modules/
+
+# Temp
+/tmp/

@@ -1,0 +1,13 @@
+node_modules/
+venv/
+data/
+logs/
+*.wav
+*.ogg
+/tmp/
+config.json
+__pycache__/
+*.pyc
+KORVIN.local.md
+
+korvin_voice_config.json

@@ -1,0 +1,34 @@
+# Korvin — Cursor Rules
+# Injected into every AI request for this repo.
+
+## Authoritative architecture
+- Node.js gateway: src/openclaw/gateway.js
+- Telegram bot: src/openclaw/telegram-bot.js
+- FastAPI dashboard: src/dashboard/main.py
+- Memory layer: src/hermes/memory.py
+- Voice: src/voice/voice.py
+- Ports: LiteLLM=4000, Dashboard=3002, Cloudflare Tunnel only
+- All services bind to 127.0.0.1 — never 0.0.0.0
+
+## Never infer architecture from README — always read source files first
+
+## Output rules — NEVER include in any generated content
+- IP addresses of any kind
+- API keys, key fragments, or key-looking strings
+- Contents of config.json or korvin.env
+- Real system usernames beyond what README already documents
+- Actual secret values — always use YOUR_KEY_HERE placeholders
+
+## Stack
+- Python 3.12 (dashboard, memory, voice)
+- Node.js 22 (gateway, Telegram bot)
+- SQLite/FTS5 (memory)
+- LiteLLM (model routing)
+- Cloudflare Zero Trust (tunnel + access)
+- Whisper tiny.en (STT)
+- Kokoro TTS, voice=bm_lewis
+
+## Code style
+- No em dashes in any output
+- Surgical edits only — do not rewrite files that dont need changing
+- Flag security-relevant changes explicitly before applying them

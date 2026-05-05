@@ -1,0 +1,6 @@
+cd /root/korvin
+echo "config.json" >> .gitignore
+git rm --cached config.json
+git add .gitignore
+git commit -m "security: remove config.json from tracking, add to gitignore"
+git push origin main

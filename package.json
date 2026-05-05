@@ -1,0 +1,38 @@
+{
+  "name": "@nosistech/korvin",
+  "version": "0.1.2",
+  "description": "Open-source, self-hosted AI agent framework for low-cost hardware. Voice-first. Memory-persistent. Model-agnostic. No lock-in.",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "src/skills/",
+    "src/openclaw/gateway.js",
+    "docs/"
+  ],
+  "scripts": {
+    "start": "node src/openclaw/telegram-bot.js",
+    "test": "node -e \"const k = require('.'); console.log('Korvin skills loaded:', Object.keys(k));\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nosistech/korvin.git"
+  },
+  "keywords": [
+    "ai-agent",
+    "security",
+    "telegram-bot",
+    "voice",
+    "agentic-ai",
+    "governance",
+    "nosistech"
+  ],
+  "author": "Carlos Paredes <info@nosistech.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nosistech/korvin/issues"
+  },
+  "homepage": "https://korvin.cloud",
+  "devDependencies": {
+    "node-telegram-bot-api": "^0.67.0"
+  }
+}

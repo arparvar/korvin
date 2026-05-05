@@ -1,0 +1,10 @@
+{
+  "telegramToken": "YOUR_TELEGRAM_BOT_TOKEN",
+  "memory_limit": 46,
+  "max_tokens": 128000,
+  "memory_strategy": "sliding_window",
+  "summarizer_url": "http://localhost:4000/v1/chat/completions",
+  "summarizer_model": "YOUR_MODEL_NAME",
+  "summarizer_fallback": "sliding_window",
+  "litellm_master_key": "YOUR_LITELLM_MASTER_KEY"
+}

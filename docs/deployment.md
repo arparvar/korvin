@@ -199,7 +199,7 @@ This guide should hold the extra detail that would overwhelm the README:
 Use wording like this in the README:
 
 ```md
-For local use, KORVIN can run without exposing a public dashboard. For remote dashboard access, use a protected route. The recommended pattern is Cloudflare Tunnel plus Cloudflare Access, so the dashboard is reachable from the internet only after an access check. See `docs/remote-access.md` for the post-install guidance.
+For local use, KORVIN can run without exposing a public dashboard. For remote dashboard access, use a protected route. The recommended pattern is Cloudflare Tunnel plus Cloudflare Access, so the dashboard is reachable from the internet only after an access check. See `docs/deployment.md` for the post-install guidance.
 ```
 
 ## Safety checklist

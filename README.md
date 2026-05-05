@@ -318,11 +318,11 @@ The dashboard runs on `127.0.0.1:3002`, loopback only, never exposed directly to
 
 **Local access only (default):** If KORVIN runs on your local machine, you can reach the dashboard directly in your browser at `http://127.0.0.1:3002`. No extra setup needed. This is the safest option.
 
+For full post-install guidance on safe remote dashboard access, see [`docs/deployment.md`](docs/deployment.md). The recommended pattern is to keep KORVIN services private locally, then use Cloudflare Tunnel plus Cloudflare Access for protected browser access.
+
 **Remote access:** If KORVIN runs on a VPS and you want to reach the dashboard from anywhere, the recommended approach is a Cloudflare Tunnel. This creates an encrypted connection between your server and the internet without opening ports on your firewall or exposing the dashboard directly.
 
 You can add Cloudflare Access on top. This gives you a simple login step so only you can reach your dashboard.
-
-> Full deployment and protected remote access documentation will be added in post-install docs.
 
 ---
 

@@ -40,11 +40,15 @@ function getInitHelpText() {
 Usage:
   korvin init [folder]
   korvin init [folder] --voice
+  korvin init [folder] --yes
+  korvin init [folder] --voice --yes
   korvin init --help
 
 Examples:
   korvin init ./korvin-local
   korvin init ./korvin-local --voice
+  korvin init ./korvin-local --yes
+  korvin init ./korvin-local --voice --yes
 
 What this command does:
   - Creates or repairs a safe local-only KORVIN project folder
@@ -55,6 +59,7 @@ What this command does:
 
 Options:
   --voice   Also prepare placeholder voice folders and an example voice profile
+  --yes     Use safe defaults without prompting
   --help    Show this help text
 
 Current boundaries:
@@ -75,6 +80,7 @@ function parseInitArgs(args = []) {
   const options = {
     projectFolder: './korvin-local',
     voice: false,
+    yes: false,
     help: false,
     unknownFlags: []
   };
@@ -89,6 +95,11 @@ function parseInitArgs(args = []) {
 
     if (arg === '--voice') {
       options.voice = true;
+      continue;
+    }
+
+    if (arg === '--yes' || arg === '-y') {
+      options.yes = true;
       continue;
     }
 
@@ -983,6 +994,7 @@ async function runInit(args = []) {
     console.log('');
     console.log('Supported options:');
     console.log('- --voice');
+    console.log('- --yes');
     console.log('- --help');
     process.exitCode = 2;
     return;
@@ -996,6 +1008,7 @@ Current v1 boundaries:
 - Quick Local Setup only
 - Repair mode restores missing generated files only
 - Existing files are preserved
+- --yes uses safe defaults only
 - No VPS setup
 - No Cloudflare setup
 - No Telegram setup
@@ -1019,6 +1032,7 @@ Current v1 boundaries:
   console.log(`- Project folder: ${state.project.folder}`);
   console.log(`- Dashboard host: ${state.dashboard.host}`);
   console.log(`- Voice preparation: ${state.options.voice}`);
+  console.log(`- Safe defaults accepted: ${state.options.yes}`);
   console.log('- Internet exposure: false');
   console.log('- Public ports configured: false');
   console.log('- Secrets written: false');
@@ -1032,3 +1046,4 @@ Current v1 boundaries:
 module.exports = {
   runInit
 };
+

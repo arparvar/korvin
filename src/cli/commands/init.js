@@ -1,6 +1,5 @@
 const fs = require('fs/promises');
 const path = require('path');
-const os = require('os');
 const childProcess = require('child_process');
 
 function runCommand(command, args) {
@@ -36,6 +35,36 @@ function runCommand(command, args) {
   });
 }
 
+function parseInitArgs(args = []) {
+  const options = {
+    projectFolder: './korvin-local',
+    voice: false,
+    unknownFlags: []
+  };
+
+  const positional = [];
+
+  for (const arg of args) {
+    if (arg === '--voice') {
+      options.voice = true;
+      continue;
+    }
+
+    if (arg.startsWith('--')) {
+      options.unknownFlags.push(arg);
+      continue;
+    }
+
+    positional.push(arg);
+  }
+
+  if (positional.length > 0) {
+    options.projectFolder = positional[0];
+  }
+
+  return options;
+}
+
 async function detectEnvironment() {
   const platformMap = {
     win32: 'windows',
@@ -68,7 +97,7 @@ async function detectEnvironment() {
   };
 }
 
-function buildSetupState(projectFolder, detection) {
+function buildSetupState(projectFolder, detection, options) {
   const absoluteProjectFolder = path.resolve(projectFolder);
   const createdAt = new Date().toISOString();
 
@@ -101,20 +130,25 @@ function buildSetupState(projectFolder, detection) {
     interfaces: {
       dashboard: true,
       telegram: false,
-      voicePrepared: false
+      voicePrepared: options.voice
     },
     security: {
       internetExposure: false,
       publicPortsConfigured: false,
       secretsWritten: false
     },
+    voice: {
+      prepared: options.voice,
+      profile: options.voice ? 'default' : null
+    },
     environment: detection,
-    warnings: detection.warnings
+    warnings: detection.warnings,
+    options
   };
 }
 
 function getTemplates(state) {
-  return {
+  const templates = {
     '.env.example': `# KORVIN environment variables
 # Copy this file to .env when you are ready to add local secrets.
 # Do not commit .env to Git.
@@ -216,6 +250,11 @@ No secrets were written.
 - Provider keys
 - Public ports
 
+## Optional voice preparation
+
+If you ran korvin init with --voice, placeholder voice folders and an example voice profile were created.
+Voice runtime dependencies are not installed by v1.
+
 ## Next step
 
 Copy .env.example to .env only when you are ready to add local secrets.
@@ -240,6 +279,27 @@ KORVIN init v1 created local setup files only.
 - Open WebUI is optional and separate from KORVIN core.
 `
   };
+
+  if (state.options.voice) {
+    templates['voice/profiles/default.example.json'] = `${JSON.stringify({
+      profile: 'default',
+      input: {
+        engine: 'placeholder',
+        notes: 'Future speech-to-text configuration goes here.'
+      },
+      output: {
+        engine: 'placeholder',
+        notes: 'Future text-to-speech configuration goes here.'
+      },
+      safety: {
+        localOnly: true,
+        secretsWritten: false
+      }
+    }, null, 2)}
+`;
+  }
+
+  return templates;
 }
 
 async function pathExists(filePath) {
@@ -249,6 +309,29 @@ async function pathExists(filePath) {
   } catch {
     return false;
   }
+}
+
+async function detectExistingSetup(baseFolder) {
+  const markers = [
+    'korvin.config.json',
+    'README.local.md',
+    '.env.example',
+    'config/providers.example.json',
+    'docs/SECURITY_NOTES.md'
+  ];
+
+  const foundMarkers = [];
+
+  for (const marker of markers) {
+    if (await pathExists(path.join(baseFolder, marker))) {
+      foundMarkers.push(marker);
+    }
+  }
+
+  return {
+    exists: foundMarkers.length > 0,
+    foundMarkers
+  };
 }
 
 async function writeFileIfMissing(baseFolder, relativeFile, content, result) {
@@ -264,9 +347,24 @@ async function writeFileIfMissing(baseFolder, relativeFile, content, result) {
   result.createdFiles.push(relativeFile);
 }
 
-async function generateProject(state) {
+async function ensureDirectory(baseFolder, relativeDirectory, result) {
+  const target = path.join(baseFolder, relativeDirectory);
+  const existed = await pathExists(target);
+
+  await fs.mkdir(target, { recursive: true });
+
+  if (existed) {
+    result.skippedDirectories.push(relativeDirectory);
+  } else {
+    result.createdDirectories.push(relativeDirectory);
+  }
+}
+
+async function generateProject(state, existingSetup) {
   const result = {
+    mode: existingSetup.exists ? 'repair-existing' : 'create-new',
     createdDirectories: [],
+    skippedDirectories: [],
     createdFiles: [],
     skippedFiles: [],
     warnings: []
@@ -284,10 +382,12 @@ async function generateProject(state) {
     'backups'
   ];
 
+  if (state.options.voice) {
+    directories.push('voice', 'voice/input', 'voice/output', 'voice/profiles');
+  }
+
   for (const directory of directories) {
-    const target = path.join(baseFolder, directory);
-    await fs.mkdir(target, { recursive: true });
-    result.createdDirectories.push(directory);
+    await ensureDirectory(baseFolder, directory, result);
   }
 
   const gitkeepFiles = [
@@ -296,6 +396,10 @@ async function generateProject(state) {
     'logs/.gitkeep',
     'backups/.gitkeep'
   ];
+
+  if (state.options.voice) {
+    gitkeepFiles.push('voice/input/.gitkeep', 'voice/output/.gitkeep');
+  }
 
   for (const file of gitkeepFiles) {
     await writeFileIfMissing(baseFolder, file, '', result);
@@ -332,6 +436,11 @@ async function validateProject(state) {
     'docs',
     'backups'
   ];
+
+  if (state.options.voice) {
+    requiredFiles.push('voice/profiles/default.example.json');
+    requiredDirectories.push('voice', 'voice/input', 'voice/output', 'voice/profiles');
+  }
 
   const missingFiles = [];
   const missingDirectories = [];
@@ -373,10 +482,18 @@ async function validateProject(state) {
     invalidFiles.push('korvin.config.json is not valid JSON');
   }
 
-  const gitignoreRaw = await fs.readFile(path.join(baseFolder, '.gitignore'), 'utf8');
+  try {
+    const gitignoreRaw = await fs.readFile(path.join(baseFolder, '.gitignore'), 'utf8');
 
-  if (!gitignoreRaw.includes('.env')) {
-    invalidFiles.push('.gitignore must include .env');
+    if (!gitignoreRaw.includes('.env')) {
+      invalidFiles.push('.gitignore must include .env');
+    }
+  } catch {
+    invalidFiles.push('.gitignore is missing or unreadable');
+  }
+
+  if (await pathExists(path.join(baseFolder, '.env'))) {
+    warnings.push('.env exists locally. It was preserved and was not read or modified.');
   }
 
   return {
@@ -405,14 +522,52 @@ function printEnvironment(detection) {
   }
 }
 
+function printExistingSetup(existingSetup) {
+  if (!existingSetup.exists) {
+    return;
+  }
+
+  console.log('');
+  console.log('Existing KORVIN setup detected.');
+  console.log('Repair mode is active.');
+  console.log('');
+  console.log('Repair behavior:');
+  console.log('- Missing generated files will be restored.');
+  console.log('- Existing files will be preserved.');
+  console.log('- .env will never be overwritten.');
+  console.log('- korvin.config.json will be preserved if it already exists.');
+  console.log('- Dashboard safety remains local-only.');
+  console.log('');
+  console.log('Detected markers:');
+  for (const marker of existingSetup.foundMarkers) {
+    console.log(`- ${marker}`);
+  }
+}
+
 function printSuccess(state, generation, validation) {
   console.log('');
-  console.log('KORVIN local setup files created.');
+  if (generation.mode === 'repair-existing') {
+    console.log('KORVIN local setup checked and repaired.');
+  } else {
+    console.log('KORVIN local setup files created.');
+  }
+
   console.log('');
   console.log(`Project folder: ${state.project.folder}`);
   console.log('');
+  console.log(`Created directories: ${generation.createdDirectories.length}`);
+  console.log(`Skipped existing directories: ${generation.skippedDirectories.length}`);
   console.log(`Created files: ${generation.createdFiles.length}`);
   console.log(`Skipped existing files: ${generation.skippedFiles.length}`);
+
+  if (state.options.voice) {
+    console.log('');
+    console.log('Voice preparation: enabled');
+    console.log('- Placeholder voice folders prepared.');
+    console.log('- Example voice profile prepared.');
+    console.log('- Voice runtime dependencies were not installed.');
+  }
+
   console.log('');
   console.log('Safety summary:');
   console.log('- No services were installed.');
@@ -420,11 +575,42 @@ function printSuccess(state, generation, validation) {
   console.log('- No provider keys were requested.');
   console.log('- No secrets were written.');
   console.log('- Dashboard default is 127.0.0.1.');
+  console.log('- Existing user files were not overwritten.');
   console.log('');
+
+  if (validation.warnings.length > 0) {
+    console.log('Validation warnings:');
+    for (const warning of validation.warnings) {
+      console.log(`- ${warning}`);
+    }
+    console.log('');
+  }
 
   if (!validation.valid) {
     console.log('Validation failed.');
-    console.log(validation);
+    console.log('');
+
+    if (validation.missingDirectories.length > 0) {
+      console.log('Missing directories:');
+      for (const directory of validation.missingDirectories) {
+        console.log(`- ${directory}`);
+      }
+    }
+
+    if (validation.missingFiles.length > 0) {
+      console.log('Missing files:');
+      for (const file of validation.missingFiles) {
+        console.log(`- ${file}`);
+      }
+    }
+
+    if (validation.invalidFiles.length > 0) {
+      console.log('Invalid files:');
+      for (const file of validation.invalidFiles) {
+        console.log(`- ${file}`);
+      }
+    }
+
     process.exitCode = 3;
     return;
   }
@@ -437,14 +623,28 @@ function printSuccess(state, generation, validation) {
 }
 
 async function runInit(args = []) {
-  const projectFolder = args[0] || './korvin-local';
+  const options = parseInitArgs(args);
+
+  if (options.unknownFlags.length > 0) {
+    console.log('Unknown option detected.');
+    for (const flag of options.unknownFlags) {
+      console.log(`- ${flag}`);
+    }
+    console.log('');
+    console.log('Supported options:');
+    console.log('- --voice');
+    process.exitCode = 2;
+    return;
+  }
 
   console.log(`KORVIN init v1
 
-This command creates a safe local-only KORVIN project configuration.
+This command creates or repairs a safe local-only KORVIN project configuration.
 
 Current v1 boundaries:
 - Quick Local Setup only
+- Repair mode restores missing generated files only
+- Existing files are preserved
 - No VPS setup
 - No Cloudflare setup
 - No Telegram setup
@@ -457,17 +657,21 @@ Current v1 boundaries:
   const detection = await detectEnvironment();
   printEnvironment(detection);
 
-  const state = buildSetupState(projectFolder, detection);
+  const state = buildSetupState(options.projectFolder, detection, options);
+  const existingSetup = await detectExistingSetup(state.project.absoluteFolder);
+
+  printExistingSetup(existingSetup);
 
   console.log('');
   console.log('Setup review:');
   console.log(`- Profile: ${state.profile}`);
   console.log(`- Project folder: ${state.project.folder}`);
   console.log(`- Dashboard host: ${state.dashboard.host}`);
+  console.log(`- Voice preparation: ${state.options.voice}`);
   console.log('- Internet exposure: false');
   console.log('- Secrets written: false');
 
-  const generation = await generateProject(state);
+  const generation = await generateProject(state, existingSetup);
   const validation = await validateProject(state);
 
   printSuccess(state, generation, validation);

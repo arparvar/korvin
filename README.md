@@ -1,5 +1,7 @@
 # KORVIN
 
+Website: https://korvin.pages.dev
+
 **Self-hosted personal AI agent. Voice-first. Memory-persistent. No lock-in.**
 
 KORVIN is self-hosted. You choose where your data goes and which providers, if any, receive requests. You bring your API keys. You own your data.

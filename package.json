@@ -41,7 +41,7 @@
   "bugs": {
     "url": "https://github.com/nosistech/korvin/issues"
   },
-  "homepage": "https://korvin.cloud",
+  "homepage": "https://korvin.pages.dev",
   "devDependencies": {
     "node-telegram-bot-api": "^0.67.0"
   }

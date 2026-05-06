@@ -13,6 +13,7 @@
     "src/cli/",
     "docs/quickstart.md",
     "docs/commands.md",
+    "docs/configuration.md",
     "docs/deployment.md",
     "docs/specs/"
   ],

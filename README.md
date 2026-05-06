@@ -169,7 +169,7 @@ echo "0 2 * * 0 root lynis audit system --quick > /home/korvin/korvin/data/lynis
 
 ## Quick Start
 
-For the standalone CLI onboarding guide, see [KORVIN Quickstart](docs/quickstart.md). For the full CLI command reference, see [KORVIN Commands](docs/commands.md).
+For the standalone CLI onboarding guide, see [KORVIN Quickstart](docs/quickstart.md). For the full CLI command reference, see [KORVIN Commands](docs/commands.md). For configuration rules and generated files, see [KORVIN Configuration](docs/configuration.md).
 
 **Install the published CLI:**
 

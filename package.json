@@ -7,12 +7,13 @@
     "korvin": "./src/cli/korvin.js"
   },
   "files": [
-    "index.js",
-    "src/skills/",
-    "src/openclaw/gateway.js",
-    "src/cli/",
-    "docs/"
-  ],
+  "index.js",
+  "src/skills/",
+  "src/openclaw/gateway.js",
+  "src/cli/",
+  "docs/deployment.md",
+  "docs/specs/"
+],
   "scripts": {
     "start": "node src/openclaw/telegram-bot.js",
     "test": "node -e \"const k = require('.'); console.log('Korvin skills loaded:', Object.keys(k));\""

@@ -2,27 +2,39 @@
 
 const { runInit } = require('./commands/init');
 
-function printHelp() {
-  console.log(`KORVIN CLI
+function getHelpText() {
+  return `KORVIN CLI
 
 Usage:
   korvin <command>
 
 Available commands:
-  korvin init     Create a local KORVIN project configuration
+  korvin init <folder>           Create or repair a local KORVIN setup
+  korvin init <folder> --voice   Also prepare placeholder voice folders
+
+Examples:
+  korvin init ./korvin-local
+  korvin init ./korvin-local --voice
+
+Current boundaries:
+  - Local setup files only
+  - No services installed
+  - No public ports configured
+  - No provider keys requested
+  - No secrets written
 
 More commands are planned.
-`);
+`;
+}
+
+function printHelp() {
+  console.log(getHelpText());
 }
 
 function printUnknownCommand(command) {
   console.error(`Unknown KORVIN command: ${command}
 
-Available commands:
-  korvin init     Create a local KORVIN project configuration
-
-More commands are planned.
-`);
+${getHelpText()}`);
   process.exitCode = 1;
 }
 

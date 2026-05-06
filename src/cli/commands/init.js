@@ -725,6 +725,7 @@ function printSuccess(state, generation, validation) {
   console.log('Safety summary:');
   console.log('- No services were installed.');
   console.log('- No internet exposure was configured.');
+  console.log('- No public ports were configured.');
   console.log('- No provider keys were requested.');
   console.log('- No secrets were written.');
   console.log('- Dashboard default is 127.0.0.1.');
@@ -828,6 +829,7 @@ Current v1 boundaries:
   console.log(`- Dashboard host: ${state.dashboard.host}`);
   console.log(`- Voice preparation: ${state.options.voice}`);
   console.log('- Internet exposure: false');
+  console.log('- Public ports configured: false');
   console.log('- Secrets written: false');
 
   const generation = await generateProject(state, existingSetup);

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { runInit } = require('./commands/init');
+const { runDoctor } = require('./commands/doctor');
 const packageJson = require('../../package.json');
 
 function getHelpText() {
@@ -12,16 +13,21 @@ Usage:
 Available commands:
   korvin init <folder>           Create or repair a local KORVIN setup
   korvin init <folder> --voice   Also prepare placeholder voice folders
+  korvin doctor                  Check local environment and default setup folder
+  korvin doctor <folder>         Check a specific local KORVIN setup folder
 
 Examples:
   korvin init ./korvin-local
   korvin init ./korvin-local --voice
+  korvin doctor
+  korvin doctor ./korvin-local
 
 Current boundaries:
-  - Local setup files only
+  - Local setup files and checks only
   - No services installed
   - No public ports configured
   - No provider keys requested
+  - No secrets read
   - No secrets written
 
 More commands are planned.
@@ -58,6 +64,11 @@ async function main(argv) {
 
   if (command === 'init') {
     await runInit(argv.slice(3));
+    return;
+  }
+
+  if (command === 'doctor') {
+    await runDoctor(argv.slice(3));
     return;
   }
 

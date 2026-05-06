@@ -296,6 +296,7 @@ It gives you a clean place to review example configuration files before adding r
 - config/litellm.example.yaml for future LiteLLM routing examples
 - config/dashboard.example.json for local dashboard examples
 - data, memory, logs, and backups folders
+- docs/SETUP_SUMMARY.md
 - docs/NEXT_STEPS.md
 - docs/SECURITY_NOTES.md
 
@@ -315,12 +316,13 @@ korvin init v1 does not configure:
 
 ## What to do next
 
-1. Read docs/SECURITY_NOTES.md.
-2. Read docs/NEXT_STEPS.md.
-3. Review korvin.config.json.
-4. Review the files inside config.
-5. Copy .env.example to .env only when you are ready to add local secrets.
-6. Keep .env private and local.
+1. Read docs/SETUP_SUMMARY.md.
+2. Read docs/SECURITY_NOTES.md.
+3. Read docs/NEXT_STEPS.md.
+4. Review korvin.config.json.
+5. Review the files inside config.
+6. Copy .env.example to .env only when you are ready to add local secrets.
+7. Keep .env private and local.
 
 ## What not to do
 
@@ -351,13 +353,70 @@ If you run korvin init again in the same folder, KORVIN checks for missing gener
 Existing files are preserved.
 Existing .env files are preserved.
 `,
+'docs/SETUP_SUMMARY.md': `# KORVIN Setup Summary
+
+This file records what korvin init v1 generated.
+
+## Setup type
+
+- Profile: quick-local
+- Scope: local setup files only
+- Internet exposure configured: no
+- Public ports configured: no
+- Services installed: no
+- Provider keys requested: no
+- Secrets written: no
+
+## Generated files
+
+- .env.example
+- .gitignore
+- korvin.config.json
+- README.local.md
+- config/providers.example.json
+- config/litellm.example.yaml
+- config/dashboard.example.json
+- docs/SETUP_SUMMARY.md
+- docs/NEXT_STEPS.md
+- docs/SECURITY_NOTES.md
+
+## Generated folders
+
+- data
+- memory
+- logs
+- config
+- docs
+- backups
+
+## Safety notes
+
+- .env.example is only a template.
+- .env is where local secrets go when the user is ready.
+- .env should not be committed.
+- Existing files are preserved during repair mode.
+- Existing .env files are preserved and are not read or modified.
+
+## Not configured by v1
+
+- VPS setup
+- Cloudflare setup
+- Telegram setup
+- systemd services
+- Open WebUI
+- Provider keys
+- Public ports
+- Production deployment
+- Voice runtime dependencies
+`,
     'docs/NEXT_STEPS.md': `# KORVIN Next Steps
 
-1. Review korvin.config.json.
-2. Copy .env.example to .env when you are ready to add local secrets.
-3. Add provider keys locally only.
-4. Keep the dashboard local unless protected remote access is configured later.
-5. Read docs/SECURITY_NOTES.md.
+1. Review docs/SETUP_SUMMARY.md.
+2. Review docs/SECURITY_NOTES.md.
+3. Review korvin.config.json.
+4. Copy .env.example to .env when you are ready to add local secrets.
+5. Add provider keys locally only.
+6. Keep the dashboard local unless protected remote access is configured later.
 
 KORVIN init v1 created local setup files only.
 `,
@@ -409,6 +468,7 @@ async function detectExistingSetup(baseFolder) {
     'README.local.md',
     '.env.example',
     'config/providers.example.json',
+    'docs/SETUP_SUMMARY.md',
     'docs/SECURITY_NOTES.md'
   ];
 
@@ -516,6 +576,7 @@ async function validateProject(state) {
     'config/providers.example.json',
     'config/litellm.example.yaml',
     'config/dashboard.example.json',
+    'docs/SETUP_SUMMARY.md',
     'docs/NEXT_STEPS.md',
     'docs/SECURITY_NOTES.md'
   ];
@@ -711,7 +772,7 @@ function printSuccess(state, generation, validation) {
   console.log('');
   console.log('Next step:');
   console.log(`cd ${state.project.folder}`);
-  console.log('Review README.local.md and docs/SECURITY_NOTES.md');
+  console.log('Review README.local.md and docs/SETUP_SUMMARY.md');
 }
 
 async function runInit(args = []) {

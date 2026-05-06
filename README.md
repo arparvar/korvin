@@ -176,6 +176,14 @@ npm install -g @nosistech/korvin
 korvin --help
 ```
 
+**Check the installed CLI version:**
+
+```bash
+korvin --version
+korvin -v
+korvin version
+```
+
 **Create a safe local-only KORVIN setup:**
 
 ```bash

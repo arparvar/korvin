@@ -591,6 +591,7 @@ korvin/
 - [Quickstart](docs/quickstart.md)
 - [Commands](docs/commands.md)
 - [Configuration](docs/configuration.md)
+- [Positioning](docs/positioning.md)
 - [Deployment](docs/deployment.md)
 
 ## Planning and Validation Specs

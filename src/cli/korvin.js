@@ -30,6 +30,12 @@ Current boundaries:
   - No secrets read
   - No secrets written
 
+Exit codes:
+  0   Success
+  1   Unknown command
+  2   Invalid option or CLI failure
+  3   Validation failed or repair recommended
+
 More commands are planned.
 `;
 }

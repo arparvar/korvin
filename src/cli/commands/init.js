@@ -68,7 +68,13 @@ Current boundaries:
   - No internet exposure configured
   - No public ports configured
   - No provider keys requested
+  - No secrets read
   - No secrets written
+
+Exit codes:
+  0   Success
+  2   Invalid option or CLI failure
+  3   Validation failed
 `;
 }
 
@@ -391,6 +397,17 @@ The real .env file should stay private and should not be committed.
 
 KORVIN doctor detects whether .env exists, but it does not read it.
 
+## Exit codes
+
+KORVIN CLI uses these exit codes:
+
+- 0: success
+- 1: unknown command
+- 2: invalid option or CLI failure
+- 3: validation failed or repair recommended
+
+Use korvin doctor after korvin init to verify the generated folder.
+
 ## Optional voice preparation
 
 If you ran korvin init with --voice, placeholder voice folders and an example voice profile were created.
@@ -466,6 +483,13 @@ Final status: Ready
 \`\`\`
 
 If doctor reports missing files or folders, rerun korvin init against the same folder.
+
+## Exit codes
+
+- 0: success
+- 1: unknown command
+- 2: invalid option or CLI failure
+- 3: validation failed or repair recommended
 
 ## Safety notes
 
@@ -555,7 +579,16 @@ Before any future remote access or service setup, confirm:
 - public ports configured stays false
 - secrets written stays false
 
-## 6. Repair if needed
+## 6. Understand exit codes
+
+KORVIN CLI uses these exit codes:
+
+- 0: success
+- 1: unknown command
+- 2: invalid option or CLI failure
+- 3: validation failed or repair recommended
+
+## 7. Repair if needed
 
 If KORVIN doctor reports missing generated files, rerun:
 

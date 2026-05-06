@@ -66,6 +66,11 @@ Current boundaries:
   - No provider keys requested
   - No secrets read
   - No secrets written
+
+Exit codes:
+  0   Ready or warnings found
+  2   Invalid option or CLI failure
+  3   Repair recommended
 `;
 }
 

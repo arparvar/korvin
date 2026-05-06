@@ -16,7 +16,8 @@
   ],
   "scripts": {
     "start": "node src/openclaw/telegram-bot.js",
-    "test": "node -e \"const k = require('.'); console.log('Korvin skills loaded:', Object.keys(k));\""
+    "test": "node -e \"const k = require('.'); console.log('Korvin skills loaded:', Object.keys(k));\" && npm run test:cli",
+    "test:cli": "node test/cli-behavior.test.js"
   },
   "repository": {
     "type": "git",

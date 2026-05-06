@@ -34,17 +34,59 @@ function runCommand(command, args) {
     });
   });
 }
+function getInitHelpText() {
+  return `KORVIN init
+
+Usage:
+  korvin init [folder]
+  korvin init [folder] --voice
+  korvin init --help
+
+Examples:
+  korvin init ./korvin-local
+  korvin init ./korvin-local --voice
+
+What this command does:
+  - Creates or repairs a safe local-only KORVIN project folder
+  - Generates example configuration files
+  - Prepares memory, data, logs, backup, and docs folders
+  - Preserves existing files during repair mode
+  - Preserves .env if it already exists
+
+Options:
+  --voice   Also prepare placeholder voice folders and an example voice profile
+  --help    Show this help text
+
+Current boundaries:
+  - Local setup files only
+  - No services installed
+  - No internet exposure configured
+  - No public ports configured
+  - No provider keys requested
+  - No secrets written
+`;
+}
+
+function printInitHelp() {
+  console.log(getInitHelpText());
+}
 
 function parseInitArgs(args = []) {
   const options = {
     projectFolder: './korvin-local',
     voice: false,
+    help: false,
     unknownFlags: []
   };
 
   const positional = [];
 
   for (const arg of args) {
+    if (arg === '--help' || arg === '-h' || arg === 'help') {
+      options.help = true;
+      continue;
+    }
+
     if (arg === '--voice') {
       options.voice = true;
       continue;
@@ -625,6 +667,11 @@ function printSuccess(state, generation, validation) {
 async function runInit(args = []) {
   const options = parseInitArgs(args);
 
+  if (options.help) {
+    printInitHelp();
+    return;
+  }
+
   if (options.unknownFlags.length > 0) {
     console.log('Unknown option detected.');
     for (const flag of options.unknownFlags) {
@@ -633,6 +680,7 @@ async function runInit(args = []) {
     console.log('');
     console.log('Supported options:');
     console.log('- --voice');
+    console.log('- --help');
     process.exitCode = 2;
     return;
   }

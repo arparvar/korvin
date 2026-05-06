@@ -582,6 +582,16 @@ korvin/
 
 ---
 
+## Planning and Validation Specs
+
+These documents describe planned or validation-focused work. They do not expand the shipped npm CLI behavior beyond what is documented above.
+
+- [korvin init UX spec](docs/specs/korvin-init-ux-spec-v0.1.md)
+- [korvin init implementation plan](docs/specs/korvin-init-implementation-plan-v0.1.md)
+- [korvin init local validation plan](docs/specs/korvin-init-local-validation-plan-v0.1.md)
+
+---
+
 ## Roadmap
 
 - [x] `korvin init` local-only setup command via npm `[experimental]`

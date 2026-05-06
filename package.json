@@ -12,6 +12,7 @@
     "src/openclaw/gateway.js",
     "src/cli/",
     "docs/quickstart.md",
+    "docs/commands.md",
     "docs/deployment.md",
     "docs/specs/"
   ],

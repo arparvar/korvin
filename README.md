@@ -4,7 +4,7 @@
 
 KORVIN is self-hosted. You choose where your data goes and which providers, if any, receive requests. You bring your API keys. You own your data.
 
-> ⚠️ **Claude Code users:** If you use Anthropic's Claude Code CLI inside this repo, run it with `ANTHROPIC_API_KEY=your-key claude` instead of your claude.ai subscription. KORVIN's source includes directories named `src/openclaw/` and `src/hermes/` (MIT-licensed dependencies) which trigger Anthropic's third-party harness billing detection. A `.claudeignore` file is included to mitigate this, but using an explicit API key is the safest approach. See [Anthropic's billing policy](https://support.claude.ai) for context.
+> ⚠️ **Claude Code users:** If you use Anthropic's Claude Code CLI inside this repo, run it with `ANTHROPIC_API_KEY=your-key claude` instead of your claude.ai subscription. KORVIN's source includes directories named `src/openclaw/` and `src/hermes/` which may trigger Anthropic's third-party harness billing detection. A `.claudeignore` file is included to mitigate this, but using an explicit API key is the safest approach. See [Anthropic's billing policy](https://support.claude.ai) for context.
 >
 > ⚠️ **For non-technical users:** This is self-hosted software that requires a VPS, basic command-line familiarity, and your own API keys. If terms like "SSH," "systemd," or "environment variables" are unfamiliar, consider asking a technical friend to help with the initial setup. The agent itself is designed to be voice-driven and simple. Getting it running is the hardest part.
 

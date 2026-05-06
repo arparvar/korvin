@@ -1,6 +1,5 @@
 # ATTRIBUTIONS — Building On the Shoulders of Giants
-This project, Korvin, is built by forking and extending the following
-open-source projects. Each is used under its own license as noted below.
+Korvin includes components and architecture influenced by the following open-source projects and technologies. Each project remains under its own license as noted below.
 1. OpenClaw — Gateway Agent Framework
 Copyright (c) 2025 OpenClaw contributors
 License: MIT

@@ -1,6 +1,6 @@
 /**
  * @nosistech/korvin
- * Self-hosted AI agent framework. Voice-first. Security-native.
+ * Self-hosted AI agent framework. Voice-first.
  */
 const { logActivity, getLogSummary } = require('./src/skills/activity-log');
 

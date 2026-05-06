@@ -1,0 +1,154 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KORVIN | Self-hosted AI agents for low-cost hardware</title>
+  <meta name="description" content="KORVIN is an open-source, self-hosted AI agent framework for low-cost hardware. Voice-first. Memory-persistent. Model-agnostic. No lock-in." />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="#">
+      <span class="brand-mark">K</span>
+      <span>KORVIN</span>
+    </a>
+
+    <nav class="nav-links" aria-label="Main navigation">
+      <a href="https://github.com/nosistech/korvin">GitHub</a>
+      <a href="https://www.npmjs.com/package/@nosistech/korvin">npm</a>
+      <a href="https://github.com/nosistech/korvin/blob/main/docs/quickstart.md">Docs</a><button class="theme-toggle" id="themeToggle" type="button">Light</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Open-source. Self-hosted. No lock-in.</p>
+        <h1>Self-hosted AI agents for low-cost hardware.</h1>
+        <p class="hero-subtitle">
+          Voice-first. Memory-persistent. Model-agnostic. No lock-in.
+        </p>
+        <p class="hero-text">
+          KORVIN is an open-source AI agent framework for builders who want control over models,
+          memory, infrastructure, and data.
+        </p>
+
+        <div class="cta-row">
+          <a class="button primary" href="https://github.com/nosistech/korvin">View on GitHub</a>
+          <a class="button secondary" href="https://www.npmjs.com/package/@nosistech/korvin">Install CLI</a>
+          <a class="button ghost" href="https://github.com/nosistech/korvin/blob/main/docs/quickstart.md">Read Quickstart</a>
+        </div>
+      </div>
+
+      <div class="terminal-card" aria-label="Install command">
+        <div class="terminal-top">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <pre><code>npm install -g @nosistech/korvin@latest
+korvin --help
+korvin init ./korvin-local
+korvin doctor ./korvin-local</code></pre>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-heading">
+        <p class="eyebrow">Why KORVIN</p>
+        <h2>Control your agent stack.</h2>
+      </div>
+
+      <div class="grid">
+        <article class="card">
+          <h3>Self-hosted control</h3>
+          <p>Run an AI agent foundation you can inspect, modify, and operate on your own infrastructure.</p>
+        </article>
+
+        <article class="card">
+          <h3>Model-agnostic</h3>
+          <p>Keep model choice in configuration so you are not locked into one provider or one hosted platform.</p>
+        </article>
+
+        <article class="card">
+          <h3>Persistent memory</h3>
+          <p>Build around memory as a core architectural layer, not as an afterthought.</p>
+        </article>
+
+        <article class="card">
+          <h3>Low-cost hardware</h3>
+          <p>Design for practical deployment paths, including low-cost VPS and local hardware workflows.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section split">
+      <div>
+        <p class="eyebrow">Works today</p>
+        <h2>Start with the public CLI.</h2>
+        <p>
+          The npm package currently focuses on safe local setup files and local checks. It creates a clean
+          starting point without asking for secrets or configuring public infrastructure.
+        </p>
+      </div>
+
+      <ul class="check-list">
+        <li>Public npm package: @nosistech/korvin</li>
+        <li>korvin init local setup generation</li>
+        <li>korvin init --voice placeholder voice preparation</li>
+        <li>korvin init --yes safe-default setup</li>
+        <li>korvin doctor local setup checks</li>
+        <li>Quickstart, commands, configuration, and deployment docs</li>
+      </ul>
+    </section>
+
+    <section class="section warning">
+      <p class="eyebrow">Current boundaries</p>
+      <h2>The npm CLI is local-only.</h2>
+      <p>
+        It does not install services, configure public ports, request provider keys, read secrets, write secrets,
+        set up a VPS, configure Cloudflare, configure Telegram, install LiteLLM runtime services,
+        configure dashboard services, or install systemd services.
+      </p>
+    </section>
+
+    <section class="section">
+      <div class="section-heading">
+        <p class="eyebrow">Documentation</p>
+        <h2>Read the public docs.</h2>
+      </div>
+
+      <div class="doc-grid">
+        <a href="https://github.com/nosistech/korvin/blob/main/docs/quickstart.md">Quickstart</a>
+        <a href="https://github.com/nosistech/korvin/blob/main/docs/commands.md">Commands</a>
+        <a href="https://github.com/nosistech/korvin/blob/main/docs/configuration.md">Configuration</a>
+        <a href="https://github.com/nosistech/korvin/blob/main/docs/deployment.md">Deployment</a>
+        <a href="https://github.com/nosistech/korvin/blob/main/docs/positioning.md">Positioning</a>
+      </div>
+    </section>
+
+    <section class="section roadmap">
+      <p class="eyebrow">Roadmap</p>
+      <h2>Building toward a complete self-hosted agent path.</h2>
+      <ul>
+        <li>Provider setup flow</li>
+        <li>Dashboard chat interface</li>
+        <li>Telegram setup guide</li>
+        <li>Full self-hosted deployment path</li>
+        <li>Local voice client polish</li>
+        <li>More runtime channels</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>MIT License. Built by Carlos Paredes and NosisTech LLC.</p>
+    <div>
+      <a href="https://github.com/nosistech/korvin">GitHub</a>
+      <a href="https://www.npmjs.com/package/@nosistech/korvin">npm</a>
+    </div>
+  </footer>
+<script>const button=document.getElementById("themeToggle");const saved=localStorage.getItem("korvin-theme");if(saved==="light"){document.body.classList.add("light");button.textContent="Dark";}button.addEventListener("click",()=>{document.body.classList.toggle("light");const isLight=document.body.classList.contains("light");button.textContent=isLight?"Dark":"Light";localStorage.setItem("korvin-theme",isLight?"light":"dark");});</script></body>
+</html>
+

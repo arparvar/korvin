@@ -107,7 +107,9 @@ To switch models, change the model name in the `transcribe` function inside `src
 
 ---
 
-## Commands
+## Telegram Runtime Commands
+
+These are runtime commands used inside an active KORVIN Telegram interface. They are separate from the npm CLI commands. For terminal commands such as `korvin init`, `korvin doctor`, and version checks, see [KORVIN Commands](docs/commands.md).
 
 KORVIN responds to these commands in Telegram:
 
@@ -583,6 +585,13 @@ korvin/
 ```
 
 ---
+
+## Documentation
+
+- [Quickstart](docs/quickstart.md)
+- [Commands](docs/commands.md)
+- [Configuration](docs/configuration.md)
+- [Deployment](docs/deployment.md)
 
 ## Planning and Validation Specs
 

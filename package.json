@@ -1,19 +1,19 @@
 {
   "name": "@nosistech/korvin",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Open-source, self-hosted AI agent framework for low-cost hardware. Voice-first. Memory-persistent. Model-agnostic. No lock-in.",
   "main": "index.js",
   "bin": {
     "korvin": "./src/cli/korvin.js"
   },
   "files": [
-  "index.js",
-  "src/skills/",
-  "src/openclaw/gateway.js",
-  "src/cli/",
-  "docs/deployment.md",
-  "docs/specs/"
-],
+    "index.js",
+    "src/skills/",
+    "src/openclaw/gateway.js",
+    "src/cli/",
+    "docs/deployment.md",
+    "docs/specs/"
+  ],
   "scripts": {
     "start": "node src/openclaw/telegram-bot.js",
     "test": "node -e \"const k = require('.'); console.log('Korvin skills loaded:', Object.keys(k));\""

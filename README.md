@@ -175,7 +175,7 @@ echo "0 2 * * 0 root lynis audit system --quick > /home/korvin/korvin/data/lynis
 npm install -g @nosistech/korvin
 ```
 
-> **Note:** This installs the KORVIN JS SDK surface only, not the full agent. The npm package does not include the Python dashboard, voice stack, LiteLLM proxy, or systemd services. To run the full agent, follow the Manual Install steps below. The `korvin init` setup wizard is on the roadmap and not yet available.
+> **Note:** This installs the KORVIN JS SDK surface and the experimental `korvin init` local setup command. The npm package does not install the full agent, Python dashboard, voice runtime, LiteLLM proxy, Telegram bot service, Cloudflare setup, or systemd services. `korvin init` currently creates or repairs safe local-only setup files. It does not configure public ports, provider keys, VPS services, or production infrastructure.
 
 **Manual Install (full control):**
 
@@ -563,7 +563,7 @@ korvin/
 
 ## Roadmap
 
-- [ ] `korvin init` setup wizard via npm `[planned]`
+- [x] `korvin init` local-only setup command via npm `[experimental]`
 - [ ] WhatsApp, Discord, Signal channels `[planned]`
 - [ ] RAG over local documents `[planned]`
 - [ ] Multi-agent orchestration `[planned]`

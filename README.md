@@ -169,13 +169,26 @@ echo "0 2 * * 0 root lynis audit system --quick > /home/korvin/korvin/data/lynis
 
 ## Quick Start
 
-**Install via npm:**
+**Install the published CLI:**
 
 ```bash
 npm install -g @nosistech/korvin
+korvin --help
 ```
 
-> **Note:** This installs the KORVIN JS SDK surface and the experimental `korvin init` local setup command. The npm package does not install the full agent, Python dashboard, voice runtime, LiteLLM proxy, Telegram bot service, Cloudflare setup, or systemd services. `korvin init` currently creates or repairs safe local-only setup files. It does not configure public ports, provider keys, VPS services, or production infrastructure.
+**Create a safe local-only KORVIN setup:**
+
+```bash
+korvin init ./korvin-local
+```
+
+**Optional voice preparation placeholders:**
+
+```bash
+korvin init ./korvin-local --voice
+```
+
+> **Note:** The npm package includes the KORVIN JS SDK surface and the experimental `korvin init` local setup command. It does not install the full agent, Python dashboard, voice runtime, LiteLLM proxy, Telegram bot service, Cloudflare setup, or systemd services. `korvin init` creates or repairs safe local-only setup files. It does not configure public ports, provider keys, VPS services, or production infrastructure.
 
 **Manual Install (full control):**
 
@@ -592,3 +605,7 @@ MIT License - free for personal, educational, and commercial use. Copies of this
 ---
 
 *Built by NosisTech*
+
+
+
+

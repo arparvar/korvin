@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const { runInit } = require('./commands/init');
+const packageJson = require('../../package.json');
 
 function getHelpText() {
   return `KORVIN CLI
@@ -31,6 +32,10 @@ function printHelp() {
   console.log(getHelpText());
 }
 
+function printVersion() {
+  console.log(packageJson.version);
+}
+
 function printUnknownCommand(command) {
   console.error(`Unknown KORVIN command: ${command}
 
@@ -43,6 +48,11 @@ async function main(argv) {
 
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     printHelp();
+    return;
+  }
+
+  if (command === 'version' || command === '--version' || command === '-v') {
+    printVersion();
     return;
   }
 

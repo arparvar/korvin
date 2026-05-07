@@ -11,6 +11,7 @@
     "src/skills/",
     "src/openclaw/gateway.js",
     "src/cli/",
+    "docs/README.md",
     "docs/quickstart.md",
     "docs/commands.md",
     "docs/configuration.md",

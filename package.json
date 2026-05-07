@@ -1,6 +1,6 @@
 {
   "name": "@nosistech/korvin",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Open-source, self-hosted AI agent framework for low-cost hardware. Voice-first. Memory-persistent. Model-agnostic. No lock-in.",
   "main": "index.js",
   "bin": {

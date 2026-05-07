@@ -126,7 +126,9 @@ async function detectEnvironment() {
 
   const npmVersion = await runCommand('npm', ['--version']);
   const gitVersion = await runCommand('git', ['--version']);
-  const pythonVersion = await runCommand('python', ['--version']);
+  const pythonVersion =
+    (await runCommand('python', ['--version'])) ||
+    (await runCommand('python3', ['--version']));
 
   const warnings = [];
 

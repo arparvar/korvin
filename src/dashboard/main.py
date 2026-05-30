@@ -1,5 +1,6 @@
 import os, sqlite3, subprocess, re, json, time, tempfile
 from datetime import datetime, date
+from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException, Depends, File, UploadFile
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -9,13 +10,16 @@ from collections import defaultdict
 import requests
 import whisper
 
-app = FastAPI(title="Korvin Dashboard")
-app.mount("/static", StaticFiles(directory="/home/korvin/korvin/src/dashboard/static"), name="static")
+BASE_DIR = Path(__file__).parent.parent.parent
+DATA_DIR = BASE_DIR / "data"
 
-DB_PATH = "/home/korvin/korvin/data/memory.db"
-KILLSWITCH_FLAG = "/home/korvin/korvin/data/killswitch.flag"
-CHAT_TIMEOUT_PATH = "/home/korvin/korvin/data/chat_timeout.txt"
-TOKEN_WARNING_PATH = "/home/korvin/korvin/data/token_warning_threshold.txt"
+app = FastAPI(title="Korvin Dashboard")
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "src" / "dashboard" / "static")), name="static")
+
+DB_PATH = str(DATA_DIR / "memory.db")
+KILLSWITCH_FLAG = str(DATA_DIR / "killswitch.flag")
+CHAT_TIMEOUT_PATH = str(DATA_DIR / "chat_timeout.txt")
+TOKEN_WARNING_PATH = str(DATA_DIR / "token_warning_threshold.txt")
 
 def require_key(x_korvin_key: Optional[str] = Header(default=None)):
     api_key = os.environ.get("KORVIN_API_KEY", "")
@@ -64,7 +68,7 @@ def _get_whisper_model():
 
 @app.get("/", response_class=HTMLResponse)
 def root():
-    with open("/home/korvin/korvin/src/dashboard/static/index.html") as f:
+    with open(str(BASE_DIR / "src" / "dashboard" / "static" / "index.html")) as f:
         html = f.read()
     api_key = os.environ.get("KORVIN_API_KEY", "")
     html = html.replace("__KORVIN_API_KEY__", api_key)
@@ -215,7 +219,7 @@ def killswitch_set(body: KillswitchRequest):
     active = os.path.exists(KILLSWITCH_FLAG)
     return {"killswitch": active, "mode": "read_only" if active else "normal"}
 
-CONFIG_PATH = "/home/korvin/korvin/config.json"
+CONFIG_PATH = str(BASE_DIR / "config.json")
 
 def _read_config():
     try:
@@ -230,7 +234,7 @@ def _write_config(updates: dict):
     with open(CONFIG_PATH, 'w') as f:
         json.dump(config, f, indent=2)
 
-ACTIVE_MODEL_PATH = "/home/korvin/korvin/data/active_model.txt"
+ACTIVE_MODEL_PATH = str(DATA_DIR / "active_model.txt")
 
 MODEL_LABELS = {
     "deepseek-v4-pro": "DeepSeek V4 Pro",
@@ -341,8 +345,8 @@ def get_models():
     return {"models": models, "active": _read_active_model()}
 
 # ── Token Tracking ─────────────────────────────────────────────────────
-TOKEN_USAGE_PATH = "/home/korvin/korvin/data/token_usage.json"
-TOKEN_RATES_PATH = "/home/korvin/korvin/data/token_rates.json"
+TOKEN_USAGE_PATH = str(DATA_DIR / "token_usage.json")
+TOKEN_RATES_PATH = str(DATA_DIR / "token_rates.json")
 
 DEFAULT_RATES = {
     "deepseek-v4-pro": 0.27,

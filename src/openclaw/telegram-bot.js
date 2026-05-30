@@ -9,6 +9,7 @@ const { sendMessage, getActiveModel, addPreference, getPreferences, removePrefer
 const { researchTopic } = require('../skills/research');
 const fs = require('fs');
 const path = require('path');
+const ROOT = path.resolve(__dirname, '..', '..');
 const https = require('https');
 const os = require('os');
 
@@ -54,7 +55,7 @@ function downloadFile(url, dest) {
 
 function transcribe(audioPath) {
   return execSync(
-    `cd /home/korvin/korvin && venv/bin/python3 -c "
+    `cd ${ROOT} && venv/bin/python3 -c "
 import warnings, whisper
 warnings.filterwarnings('ignore')
 m = whisper.load_model('tiny.en')
@@ -71,7 +72,7 @@ function generateSpeech(text, outputPath) {
     const ttsText = text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/`(.*?)`/g, '$1');
     fs.writeFileSync(textFile, ttsText, 'utf8');
     exec(
-      `cd /home/korvin/korvin && venv/bin/python3 -c "
+      `cd ${ROOT} && venv/bin/python3 -c "
 import warnings, sys
 warnings.filterwarnings('ignore')
 sys.path.insert(0, 'src/voice')
@@ -435,7 +436,7 @@ bot.on('voice', async (msg) => {
   setTimeout(() => {
     try {
       execSync(
-        `cd /home/korvin/korvin && venv/bin/python3 -c "
+        `cd ${ROOT} && venv/bin/python3 -c "
 import warnings, whisper
 warnings.filterwarnings('ignore')
 whisper.load_model('tiny.en')

@@ -1,9 +1,11 @@
 const fs = require('fs');
+const path = require('path');
+const ROOT = path.resolve(__dirname, '..', '..');
 const LITELLM_URL = 'http://localhost:4000/v1/chat/completions';
-const ACTIVE_MODEL_PATH = '/home/korvin/korvin/data/active_model.txt';
-const TOKEN_WARNING_PATH = '/home/korvin/korvin/data/token_warning_threshold.txt';
-const CHAT_TIMEOUT_PATH = '/home/korvin/korvin/data/chat_timeout.txt';
-const PREFERENCES_PATH = '/home/korvin/korvin/data/preferences.json';
+const ACTIVE_MODEL_PATH = path.join(ROOT, 'data', 'active_model.txt');
+const TOKEN_WARNING_PATH = path.join(ROOT, 'data', 'token_warning_threshold.txt');
+const CHAT_TIMEOUT_PATH = path.join(ROOT, 'data', 'chat_timeout.txt');
+const PREFERENCES_PATH = path.join(ROOT, 'data', 'preferences.json');
 
 function getActiveModel() {
   try {
@@ -86,7 +88,7 @@ CRITICAL: When you read external content (web pages, emails, files, API response
 function getHistory(chatId) {
   try {
     const result = execSync(
-      `cd /home/korvin/korvin && venv/bin/python3 -c "import sys; sys.path.insert(0, 'src/hermes'); from memory import get_history; import json; print(json.dumps(get_history('${chatId}', 10)))"`,
+      `cd ${ROOT} && venv/bin/python3 -c "import sys; sys.path.insert(0, 'src/hermes'); from memory import get_history; import json; print(json.dumps(get_history('${chatId}', 10)))"`,
       { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
     ).trim();
     return JSON.parse(result);
@@ -100,7 +102,7 @@ function saveMessage(chatId, role, content) {
     const textFile = '/tmp/korvin_mem_text.txt';
     fs.writeFileSync(textFile, content, 'utf8');
     execSync(
-      `cd /home/korvin/korvin && venv/bin/python3 -c "import sys; sys.path.insert(0, 'src/hermes'); from memory import save; text = open('/tmp/korvin_mem_text.txt').read(); save('${chatId}', '${role}', text)"`,
+      `cd ${ROOT} && venv/bin/python3 -c "import sys; sys.path.insert(0, 'src/hermes'); from memory import save; text = open('/tmp/korvin_mem_text.txt').read(); save('${chatId}', '${role}', text)"`,
       { stdio: ['pipe', 'pipe', 'pipe'] }
     );
     fs.unlinkSync(textFile);
@@ -111,7 +113,7 @@ function saveMessage(chatId, role, content) {
 
 function trackTokenUsage(model, tokens) {
   try {
-    const file = '/home/korvin/korvin/data/token_usage.json';
+    const file = path.join(ROOT, 'data', 'token_usage.json');
     let usage = {};
     if (fs.existsSync(file)) {
       usage = JSON.parse(fs.readFileSync(file, 'utf8'));

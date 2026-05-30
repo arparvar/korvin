@@ -45,5 +45,8 @@
   "homepage": "https://korvin.cloud",
   "devDependencies": {
     "node-telegram-bot-api": "^0.67.0"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3"
   }
 }

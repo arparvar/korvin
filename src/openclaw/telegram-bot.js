@@ -12,6 +12,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
 const https = require('https');
 const os = require('os');
+const cron = require('node-cron');
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 const { sanitizeInput } = require('../middleware/sanitizer');
@@ -20,6 +21,7 @@ const { defend } = require('../security/defender');
 
 // ── Skills ────────────────────────────────────────────────────────────────────
 const { logActivity, getLogSummary } = require('../skills/activity-log');
+const { loadCronJobs, removeCronJob, getSecurityReport, SECURITY_CHAT_PATH } = require('../skills/dispatcher');
 
 // ── Commands (Phase B) ────────────────────────────────────────────────────────
 const { registerPatch } = require('../commands/patch');
@@ -40,6 +42,7 @@ const pendingGrills = new Map();
 
 // ── Brief Mode state ─────────────────────────────────────────────────────────
 let briefMode = false;
+const scheduledCronTasks = new Map();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -102,6 +105,46 @@ function cleanup(...files) {
 function formatError(action, error) {
   const reason = error.message || 'an unexpected error occurred';
   return `Couldn't ${action} because ${reason}.`;
+}
+
+function activateCronJob(job) {
+  if (!job || !job.id || !job.cronExpr || !job.action || scheduledCronTasks.has(job.id)) return;
+  if (!cron.validate(job.cronExpr)) return;
+  const task = cron.schedule(job.cronExpr, async () => {
+    try {
+      await sendMessage(job.action, `cron-${job.id}`);
+    } catch (err) {
+      console.error('Cron job error:', err.message);
+    }
+  });
+  scheduledCronTasks.set(job.id, task);
+}
+
+function activateStoredCronJobs() {
+  for (const job of loadCronJobs()) activateCronJob(job);
+}
+
+function cancelScheduledJob(id) {
+  const task = scheduledCronTasks.get(id);
+  if (task) {
+    task.stop();
+    scheduledCronTasks.delete(id);
+  }
+  return removeCronJob(id);
+}
+
+function activateSecurityMonitor() {
+  cron.schedule('0 8 * * 1', async () => {
+    try {
+      if (!fs.existsSync(SECURITY_CHAT_PATH)) return;
+      const chatId = fs.readFileSync(SECURITY_CHAT_PATH, 'utf8').trim();
+      if (!chatId) return;
+      const report = await getSecurityReport(`cron-security-${chatId}`);
+      await bot.sendMessage(chatId, report);
+    } catch (err) {
+      console.error('Security monitor error:', err.message);
+    }
+  });
 }
 
 // ── Grill Mode ────────────────────────────────────────────────────────────────
@@ -217,7 +260,12 @@ bot.onText(/\/confirm (.+)/, (msg, match) => {
 });
 
 bot.onText(/\/cancel (.+)/, (msg, match) => {
-  const result = cancelAction(match[1].trim(), String(msg.from.id));
+  const id = match[1].trim();
+  if (cancelScheduledJob(id)) {
+    bot.sendMessage(msg.chat.id, `Scheduled job cancelled: ${id}`);
+    return;
+  }
+  const result = cancelAction(id, String(msg.from.id));
   bot.sendMessage(msg.chat.id, result.message);
 });
 
@@ -343,7 +391,7 @@ bot.on('message', async (msg) => {
     return;
   }
 
-  if (sanity.value.toLowerCase().startsWith('research ')) {
+  if (false && sanity.value.toLowerCase().startsWith('research ')) {
     const topic = sanity.value.substring(9).trim();
     await bot.sendMessage(chatId, `🔍 Researching "${topic}" …`);
     try {
@@ -397,7 +445,7 @@ bot.on('voice', async (msg) => {
       return;
     }
 
-    if (transcript.toLowerCase().includes('research ')) {
+    if (false && transcript.toLowerCase().includes('research ')) {
       const idx = transcript.toLowerCase().indexOf('research ') + 9;
       const topic = transcript.substring(idx).trim();
       await bot.sendMessage(chatId, `🔍 Researching "${topic}" …`);
@@ -431,6 +479,8 @@ bot.on('voice', async (msg) => {
 
 (async () => {
   await startDashboard();
+  activateStoredCronJobs();
+  activateSecurityMonitor();
   console.log('Korvin bot started. /help for commands.');
 
   setTimeout(() => {

@@ -1,0 +1,210 @@
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+const { researchTopic } = require('./research');
+const { SkillResult, executeSkill } = require('../middleware/skill-contract');
+
+const ROOT = path.resolve(__dirname, '..', '..');
+const DATA_DIR = path.join(ROOT, 'data');
+const CRON_JOBS_PATH = path.join(DATA_DIR, 'cron_jobs.json');
+const SECURITY_CHAT_PATH = path.join(DATA_DIR, 'security_monitor_chat.txt');
+const LITELLM_URL = 'http://localhost:4000/v1/chat/completions';
+
+function ensureDataDir() {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+function getActiveModel() {
+  try {
+    return fs.readFileSync(path.join(DATA_DIR, 'active_model.txt'), 'utf8').trim();
+  } catch (_) {
+    return 'deepseek-v4-pro';
+  }
+}
+
+async function callLiteLLM(systemPrompt, userMessage) {
+  const apiKey = process.env.LITELLM_MASTER_KEY;
+  if (!apiKey) throw new Error('LITELLM_MASTER_KEY is not configured');
+
+  const response = await fetch(LITELLM_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: getActiveModel(),
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+      temperature: 0.5,
+      stream: false,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`LiteLLM error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+function loadCronJobs() {
+  try {
+    const raw = fs.readFileSync(CRON_JOBS_PATH, 'utf8');
+    const jobs = JSON.parse(raw);
+    return Array.isArray(jobs) ? jobs : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveCronJobs(jobs) {
+  ensureDataDir();
+  fs.writeFileSync(CRON_JOBS_PATH, JSON.stringify(jobs, null, 2));
+}
+
+function removeCronJob(id) {
+  const jobs = loadCronJobs();
+  const remaining = jobs.filter(job => job.id !== id);
+  saveCronJobs(remaining);
+  return remaining.length !== jobs.length;
+}
+
+function scheduleToCron(schedule) {
+  const normalized = schedule.trim().toLowerCase();
+  const map = {
+    monday: '0 9 * * 1',
+    mon: '0 9 * * 1',
+    daily: '0 9 * * *',
+    'every day': '0 9 * * *',
+    hourly: '0 * * * *',
+    weekly: '0 9 * * 1',
+  };
+  return map[normalized] || null;
+}
+
+function saveScheduledTask(schedule, action) {
+  const cronExpr = scheduleToCron(schedule);
+  if (!cronExpr) {
+    return `I can schedule daily, every day, hourly, weekly, Monday, or Mon right now.`;
+  }
+
+  const jobs = loadCronJobs();
+  const id = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const job = {
+    id,
+    schedule,
+    cronExpr,
+    action,
+    created: new Date().toISOString(),
+  };
+  jobs.push(job);
+  saveCronJobs(jobs);
+  return `Scheduled: ${action} at ${cronExpr}. ID: ${id}. Cancel with: /cancel ${id}`;
+}
+
+function execCommand(command) {
+  return new Promise(resolve => {
+    exec(command, { timeout: 5000 }, (error, stdout) => {
+      if (error && !stdout) {
+        resolve('');
+        return;
+      }
+      resolve((stdout || '').trim());
+    });
+  });
+}
+
+async function getSecurityReport(chatId) {
+  if (chatId && String(chatId) !== 'dashboard' && String(chatId) !== 'test' && !String(chatId).startsWith('cron-')) {
+    ensureDataDir();
+    fs.writeFileSync(SECURITY_CHAT_PATH, String(chatId), 'utf8');
+  }
+
+  const [diskRaw, memRaw, servicesRaw] = await Promise.all([
+    execCommand('df -h --output=pcent / | tail -1'),
+    execCommand("free -m | awk '/^Mem/{print $3,$2}'"),
+    execCommand('systemctl is-active korvin.service korvin-dashboard.service litellm.service'),
+  ]);
+
+  const disk = diskRaw || 'unknown';
+  const memParts = memRaw.split(/\s+/);
+  const ram = memParts.length >= 2 ? `${memParts[0]}m/${memParts[1]}m` : 'unknown';
+  const serviceStates = servicesRaw.split(/\s+/).filter(Boolean);
+  const serviceNames = ['korvin.service', 'korvin-dashboard.service', 'litellm.service'];
+  const inactive = serviceNames.filter((_, i) => serviceStates[i] !== 'active');
+  const services = inactive.length === 0 ? 'all active' : `inactive: ${inactive.join(', ')}`;
+
+  return [
+    `VPS Report ${new Date().toISOString()}`,
+    `Disk: ${disk}`,
+    `RAM: ${ram}`,
+    `Services: ${services}`,
+    'No external threat feed in v1.0.',
+  ].join('\n');
+}
+
+async function runWebResearch(topic) {
+  const result = await executeSkill('web-researcher', async () => {
+    const raw = await researchTopic(topic);
+    const report = await callLiteLLM(
+      'Synthesize these search results into a brief structured report with: Summary, Key Findings, and Sources.',
+      raw
+    );
+    return SkillResult.success(report, { topic });
+  });
+  return result.summary;
+}
+
+async function draftDocument(doctype, topic) {
+  const result = await executeSkill('document-drafter', async () => {
+    const draft = await callLiteLLM(
+      `You are a professional writer. Write a ${doctype} about ${topic}. Produce a complete, polished draft. Use placeholders like [Name], [Date] where appropriate. Format with clear sections.`,
+      topic
+    );
+    return SkillResult.success(draft, { doctype, topic });
+  });
+  return result.summary;
+}
+
+async function dispatchSkill(text, chatId = 'default') {
+  const message = String(text || '').trim();
+  if (!message) return null;
+
+  let match = message.match(/^research\s+(.+)/i);
+  if (match) return await runWebResearch(match[1].trim());
+
+  match = message.match(/^every\s+(.+?)\s+(do|remind me to)\s+(.+)/i);
+  if (match) return saveScheduledTask(match[1].trim(), match[3].trim());
+
+  match = message.match(/^remind me to\s+(.+?)\s+every\s+(.+)/i);
+  if (match) return saveScheduledTask(match[2].trim(), match[1].trim());
+
+  match = message.match(/^write (?:a|an)\s+(.+?)\s+(?:about|on|for|to)\s+(.+)/i);
+  if (match) return await draftDocument(match[1].trim(), match[2].trim());
+
+  if (/^(?:security\s+report|check\s+(?:vps|security|services?))/i.test(message)) {
+    const result = await executeSkill('security-monitor', async () => {
+      const report = await getSecurityReport(chatId);
+      return SkillResult.success(report, { chatId: String(chatId) });
+    });
+    return result.summary;
+  }
+
+  if (/^(?:summarize|check|show)\s+(?:my\s+)?(?:inbox|email|mail)/i.test(message)) {
+    return 'Email integration is not configured yet. This feature requires OAuth setup with Gmail or Outlook. It will be available in v1.1.';
+  }
+
+  return null;
+}
+
+module.exports = {
+  dispatchSkill,
+  getSecurityReport,
+  loadCronJobs,
+  removeCronJob,
+  SECURITY_CHAT_PATH,
+};

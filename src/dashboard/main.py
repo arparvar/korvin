@@ -3,7 +3,7 @@ from datetime import datetime, date
 from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException, Depends, File, UploadFile
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from collections import defaultdict
@@ -11,6 +11,7 @@ import requests
 import whisper
 
 BASE_DIR = Path(__file__).parent.parent.parent
+APP_DIR = str(BASE_DIR)
 DATA_DIR = BASE_DIR / "data"
 
 app = FastAPI(title="Korvin Dashboard")
@@ -421,6 +422,18 @@ class ChatRequest(BaseModel):
 def chat(body: ChatRequest):
     chat_id = body.chat_id or os.environ.get("KORVIN_CHAT_ID", "dashboard-chat")
     _check_chat_rate_limit(chat_id)
+    message_text = body.message
+
+    result = subprocess.run(
+        ['node', '-e', 'const d=require("./src/skills/dispatcher"); d.dispatchSkill(process.env.MSG,"dashboard").then(r=>process.stdout.write(r||"")).catch(()=>process.stdout.write(""))'],
+        env={**os.environ, 'MSG': message_text},
+        capture_output=True,
+        text=True,
+        cwd=APP_DIR,
+        timeout=30
+    )
+    if result.stdout.strip():
+        return JSONResponse({"reply": result.stdout.strip()})
 
     messages = [{
         "role": "system",

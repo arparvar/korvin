@@ -80,6 +80,7 @@ if (!API_KEY) throw new Error('LITELLM_MASTER_KEY not set in /etc/korvin.env');
 const { sanitize: defendSanitize } = require('../security/defender');
 const { sanitize: inputSanitize } = require('../middleware/sanitizer');
 const { execSync } = require('child_process');
+const { dispatchSkill } = require('../skills/dispatcher');
 
 const SYSTEM_PROMPT = `You are Korvin, a self-hosted personal AI agent. You are helpful, conversational, and warm. The human you are speaking to is your operator and the person who installed you.
 
@@ -134,6 +135,12 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
   const check = inputSanitize(userMessage);
   if (!check.safe) throw new Error(`Input blocked: ${check.reason}`);
   const safeMessage = defendSanitize(check.value);
+  const skillResult = await dispatchSkill(safeMessage, chatId);
+  if (skillResult !== null) {
+    saveMessage(chatId, 'user', safeMessage);
+    saveMessage(chatId, 'assistant', skillResult);
+    return skillResult;
+  }
   const history = getHistory(chatId);
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },

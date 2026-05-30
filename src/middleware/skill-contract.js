@@ -24,7 +24,7 @@ async function executeSkill(name, fn) {
     console.error(`[SKILL:${name}]`, e);
     res = SkillResult.failed(`Error executing '${name}'. Nothing changed.`, e);
   }
-  console.log(`[SKILL:${name}] status=${res.status} (${Date.now()-start}ms)`);
+  console.error(`[SKILL:${name}] status=${res.status} (${Date.now()-start}ms)`);
   return res;
 }
 

@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+APP_USER="korvin"
+APP_HOME="/home/${APP_USER}"
+APP_DIR="${APP_HOME}/korvin"
+REPO_URL="${KORVIN_REPO_URL:-https://github.com/nosistech/korvin.git}"
+ENV_FILE="/etc/korvin.env"
+LITELLM_CONFIG="${APP_HOME}/litellm_config.yaml"
+CONFIG_FILE="${APP_DIR}/config.json"
+
+require_root() {
+  if [ "${EUID}" -ne 0 ]; then
+    echo "Run this installer as root: sudo bash install.sh"
+    exit 1
+  fi
+}
+
+require_ubuntu_2404() {
+  . /etc/os-release
+  if [ "${ID:-}" != "ubuntu" ] || [ "${VERSION_ID:-}" != "24.04" ]; then
+    echo "This installer targets Ubuntu 24.04. Detected: ${PRETTY_NAME:-unknown}"
+    exit 1
+  fi
+}
+
+read_secret() {
+  local prompt="$1"
+  local var_name="$2"
+  local value=""
+
+  while [ -z "${value}" ]; do
+    read -rsp "${prompt}: " value
+    echo
+    if [ -z "${value}" ]; then
+      echo "This value is required."
+    fi
+  done
+
+  printf -v "${var_name}" "%s" "${value}"
+}
+
+install_system_deps() {
+  apt-get update
+  apt-get install -y ca-certificates curl ffmpeg gnupg git python3 python3-pip python3-venv
+
+  if ! command -v node >/dev/null 2>&1 || ! node --version | grep -q '^v18\.'; then
+    install -d -m 0755 /etc/apt/keyrings
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+      | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" \
+      > /etc/apt/sources.list.d/nodesource.list
+    apt-get update
+    apt-get install -y nodejs
+  fi
+}
+
+create_app_user() {
+  if ! id "${APP_USER}" >/dev/null 2>&1; then
+    useradd --create-home --shell /bin/bash "${APP_USER}"
+  fi
+}
+
+clone_repo() {
+  if [ -d "${APP_DIR}/.git" ]; then
+    runuser -u "${APP_USER}" -- git -C "${APP_DIR}" pull --ff-only
+  elif [ -e "${APP_DIR}" ]; then
+    echo "${APP_DIR} exists but is not a git checkout. Move it aside and rerun this installer."
+    exit 1
+  else
+    runuser -u "${APP_USER}" -- git clone "${REPO_URL}" "${APP_DIR}"
+  fi
+}
+
+install_app_deps() {
+  runuser -u "${APP_USER}" -- python3 -m venv "${APP_DIR}/venv"
+  runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" -m pip install --upgrade pip setuptools wheel
+  runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" -m pip install -r "${APP_DIR}/requirements.txt"
+  runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" -m pip install litellm
+  runuser -u "${APP_USER}" -- npm --prefix "${APP_DIR}" install
+}
+
+write_env_file() {
+  local telegram_bot_token="$1"
+  local deepseek_api_key="$2"
+  local gemini_api_key="$3"
+  local litellm_master_key="$4"
+  local korvin_api_key="$5"
+
+  umask 077
+  cat > "${ENV_FILE}" <<EOF
+TELEGRAM_BOT_TOKEN=${telegram_bot_token}
+DEEPSEEK_API_KEY=${deepseek_api_key}
+GEMINI_API_KEY=${gemini_api_key}
+LITELLM_MASTER_KEY=${litellm_master_key}
+LITELLM_BASE_URL=http://127.0.0.1:4000/v1
+OPENAI_API_BASE_URL=http://127.0.0.1:4000/v1
+OPENAI_API_KEY=${litellm_master_key}
+KORVIN_API_KEY=${korvin_api_key}
+KORVIN_MODEL=deepseek-v4-pro
+KORVIN_DATA_DIR=${APP_DIR}/data
+EOF
+  chmod 600 "${ENV_FILE}"
+}
+
+write_config_json() {
+  local telegram_bot_token="$1"
+
+  CONFIG_FILE="${CONFIG_FILE}" TELEGRAM_BOT_TOKEN="${telegram_bot_token}" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+config_path = Path(os.environ["CONFIG_FILE"])
+config_path.write_text(
+    json.dumps({"telegramToken": os.environ["TELEGRAM_BOT_TOKEN"]}, indent=2) + "\n",
+    encoding="utf-8",
+)
+PY
+  chown "${APP_USER}:${APP_USER}" "${CONFIG_FILE}"
+  chmod 600 "${CONFIG_FILE}"
+}
+
+write_litellm_config() {
+  cat > "${LITELLM_CONFIG}" <<'EOF'
+model_list:
+  - model_name: deepseek-v4-pro
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: deepseek/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+  - model_name: gemini-flash
+    litellm_params:
+      model: gemini/gemini-1.5-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+EOF
+  chown "${APP_USER}:${APP_USER}" "${LITELLM_CONFIG}"
+  chmod 600 "${LITELLM_CONFIG}"
+}
+
+write_systemd_services() {
+  cat > /etc/systemd/system/korvin.service <<EOF
+[Unit]
+Description=Korvin Telegram Bot
+After=network-online.target litellm.service
+Wants=network-online.target litellm.service
+
+[Service]
+Type=simple
+User=${APP_USER}
+WorkingDirectory=${APP_DIR}
+EnvironmentFile=${ENV_FILE}
+ExecStart=/usr/bin/node ${APP_DIR}/src/openclaw/telegram-bot.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  cat > /etc/systemd/system/korvin-dashboard.service <<EOF
+[Unit]
+Description=Korvin FastAPI Dashboard
+After=network-online.target litellm.service
+Wants=network-online.target litellm.service
+
+[Service]
+Type=simple
+User=${APP_USER}
+WorkingDirectory=${APP_DIR}
+EnvironmentFile=${ENV_FILE}
+ExecStart=${APP_DIR}/venv/bin/uvicorn src.dashboard.main:app --host 127.0.0.1 --port 3002
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  cat > /etc/systemd/system/litellm.service <<EOF
+[Unit]
+Description=LiteLLM Proxy for Korvin
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${APP_USER}
+WorkingDirectory=${APP_HOME}
+EnvironmentFile=${ENV_FILE}
+ExecStart=${APP_DIR}/venv/bin/litellm --config ${LITELLM_CONFIG} --host 127.0.0.1 --port 4000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+}
+
+start_services() {
+  systemctl daemon-reload
+  systemctl enable --now litellm.service korvin-dashboard.service korvin.service
+}
+
+main() {
+  require_root
+  require_ubuntu_2404
+
+  read_secret "Telegram bot token" TELEGRAM_BOT_TOKEN
+  read_secret "DeepSeek API key" DEEPSEEK_API_KEY
+  read_secret "Gemini API key" GEMINI_API_KEY
+  read_secret "LiteLLM master key" LITELLM_MASTER_KEY
+  read_secret "Korvin dashboard API key" KORVIN_API_KEY
+
+  install_system_deps
+  create_app_user
+  clone_repo
+  install_app_deps
+  install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}/data"
+  write_env_file "${TELEGRAM_BOT_TOKEN}" "${DEEPSEEK_API_KEY}" "${GEMINI_API_KEY}" "${LITELLM_MASTER_KEY}" "${KORVIN_API_KEY}"
+  write_config_json "${TELEGRAM_BOT_TOKEN}"
+  write_litellm_config
+  write_systemd_services
+  start_services
+
+  echo
+  echo "Korvin install complete."
+  echo "Services: korvin.service, korvin-dashboard.service, litellm.service"
+  echo "Dashboard: http://127.0.0.1:3002"
+  echo "LiteLLM: http://127.0.0.1:4000"
+}
+
+main "$@"

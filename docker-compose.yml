@@ -1,0 +1,88 @@
+services:
+  korvin:
+    image: node:18-slim
+    working_dir: /app
+    env_file:
+      - .env
+    environment:
+      LITELLM_BASE_URL: http://127.0.0.1:4000/v1
+      OPENAI_API_BASE_URL: http://127.0.0.1:4000/v1
+      OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
+      KORVIN_DATA_DIR: /app/data
+    network_mode: "service:litellm"
+    volumes:
+      - ./:/app
+      - korvin-sqlite:/app/data
+    command:
+      - sh
+      - -c
+      - |
+        node - <<'NODE'
+        const fs = require('fs');
+        fs.writeFileSync('/app/config.json', JSON.stringify({
+          telegramToken: process.env.TELEGRAM_BOT_TOKEN || ''
+        }, null, 2) + '\n');
+        NODE
+        npm install
+        npm start
+    depends_on:
+      litellm:
+        condition: service_started
+    restart: unless-stopped
+
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    env_file:
+      - .env
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        cat > /tmp/litellm_config.yaml <<'EOF'
+        model_list:
+          - model_name: deepseek-v4-pro
+            litellm_params:
+              model: deepseek/deepseek-chat
+              api_key: os.environ/DEEPSEEK_API_KEY
+          - model_name: deepseek-v4-flash
+            litellm_params:
+              model: deepseek/deepseek-chat
+              api_key: os.environ/DEEPSEEK_API_KEY
+          - model_name: gemini-flash
+            litellm_params:
+              model: gemini/gemini-1.5-flash
+              api_key: os.environ/GEMINI_API_KEY
+
+        general_settings:
+          master_key: os.environ/LITELLM_MASTER_KEY
+        EOF
+        exec litellm --config /tmp/litellm_config.yaml --host 0.0.0.0 --port 4000
+    ports:
+      - "127.0.0.1:4000:4000"
+    restart: unless-stopped
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    env_file:
+      - .env
+    environment:
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      OPENAI_API_BASE_URLS: http://litellm:4000/v1
+      OPENAI_API_KEY: ${LITELLM_MASTER_KEY}
+      OPENAI_API_KEYS: ${LITELLM_MASTER_KEY}
+    volumes:
+      - open-webui-data:/app/backend/data
+    ports:
+      - "127.0.0.1:3002:8080"
+    depends_on:
+      litellm:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  korvin-sqlite:
+  open-webui-data:

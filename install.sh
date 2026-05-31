@@ -8,6 +8,12 @@ REPO_URL="${KORVIN_REPO_URL:-https://github.com/nosistech/korvin.git}"
 ENV_FILE="/etc/korvin.env"
 LITELLM_CONFIG="${APP_HOME}/litellm_config.yaml"
 CONFIG_FILE="${APP_DIR}/config.json"
+TOTAL_STEPS=6
+
+step() {
+  echo
+  echo "[$1/${TOTAL_STEPS}] $2..."
+}
 
 require_root() {
   if [ "${EUID}" -ne 0 ]; then
@@ -16,12 +22,15 @@ require_root() {
   fi
 }
 
-require_ubuntu_2404() {
+require_supported_os() {
   . /etc/os-release
-  if [ "${ID:-}" != "ubuntu" ] || [ "${VERSION_ID:-}" != "24.04" ]; then
-    echo "This installer targets Ubuntu 24.04. Detected: ${PRETTY_NAME:-unknown}"
-    exit 1
+  if [ "${ID:-}" != "ubuntu" ] && [ "${ID:-}" != "debian" ]; then
+    echo "Unsupported OS detected. Proceeding anyway ? manual verification recommended."
   fi
+}
+
+detect_server_ip() {
+  hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1"
 }
 
 read_secret() {
@@ -80,6 +89,28 @@ read_optional_chat_id() {
   fi
 }
 
+read_llm_key() {
+  local value=""
+
+  while [ -z "${value}" ]; do
+    read -r -s -p "LLM API key (Gemini or DeepSeek): " value
+    echo
+    if [ -z "${value}" ]; then
+      echo "This value is required."
+    fi
+  done
+
+  if [[ "${value}" == AIza* ]]; then
+    GEMINI_API_KEY="${value}"
+    DEEPSEEK_API_KEY=""
+    echo "LLM provider: Gemini"
+  else
+    DEEPSEEK_API_KEY="${value}"
+    GEMINI_API_KEY=""
+    echo "LLM provider: DeepSeek"
+  fi
+}
+
 install_system_deps() {
   apt-get update
   apt-get install -y ca-certificates curl ffmpeg gnupg git python3 python3-pip python3-venv
@@ -127,6 +158,13 @@ write_env_file() {
   local gemini_api_key="$4"
   local litellm_master_key="$5"
   local korvin_api_key="$6"
+  local korvin_model=""
+
+  if [ -n "${gemini_api_key}" ]; then
+    korvin_model="gemini-flash"
+  else
+    korvin_model="deepseek-v4-pro"
+  fi
 
   umask 077
   cat > "${ENV_FILE}" <<EOF
@@ -139,7 +177,7 @@ LITELLM_BASE_URL=http://127.0.0.1:4000/v1
 OPENAI_API_BASE_URL=http://127.0.0.1:4000/v1
 OPENAI_API_KEY=${litellm_master_key}
 KORVIN_API_KEY=${korvin_api_key}
-KORVIN_MODEL=deepseek-v4-pro
+KORVIN_MODEL=${korvin_model}
 KORVIN_DATA_DIR=${APP_DIR}/data
 EOF
   chmod 600 "${ENV_FILE}"
@@ -253,31 +291,56 @@ start_services() {
 
 main() {
   require_root
-  require_ubuntu_2404
+  require_supported_os
 
   read_optional_telegram_token
   read_optional_chat_id
-  read_secret "DeepSeek API key (required)" DEEPSEEK_API_KEY
-  read_secret "Gemini API key (required)" GEMINI_API_KEY
-  read_secret "LiteLLM master key (required)" LITELLM_MASTER_KEY
-  read_secret "Korvin dashboard API key (required)" KORVIN_API_KEY
+  read_llm_key
+  read_secret "Dashboard security key (choose any strong password)" KORVIN_API_KEY
+  LITELLM_MASTER_KEY=$(openssl rand -hex 32 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(32))")
+  echo "Internal LiteLLM key: auto-generated"
 
+  step 1 "Checking and installing system dependencies"
   install_system_deps
+  step 2 "Creating application user"
   create_app_user
+  step 3 "Downloading Korvin"
   clone_repo
   install_app_deps
   install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}/data"
+  step 4 "Writing configuration"
   write_env_file "${TELEGRAM_BOT_TOKEN}" "${KORVIN_CHAT_ID}" "${DEEPSEEK_API_KEY}" "${GEMINI_API_KEY}" "${LITELLM_MASTER_KEY}" "${KORVIN_API_KEY}"
   write_config_json "${TELEGRAM_BOT_TOKEN}"
   write_litellm_config
   write_systemd_services
+  step 5 "Starting services"
   start_services
 
+  step 6 "Complete"
+  SERVER_IP=$(detect_server_ip)
   echo
-  echo "Korvin install complete."
-  echo "Services: korvin.service, korvin-dashboard.service, litellm.service"
-  echo "Dashboard: http://127.0.0.1:3002"
-  echo "LiteLLM: http://127.0.0.1:4000"
+  echo "=============================="
+  echo " Korvin installed successfully"
+  echo "=============================="
+  echo
+  echo "Dashboard: http://${SERVER_IP}:3002"
+  echo "Dashboard key: ${KORVIN_API_KEY}"
+  echo
+  echo "To check services:"
+  echo "  systemctl status korvin-dashboard.service"
+  echo "  systemctl status litellm.service"
+  if [ -z "${TELEGRAM_BOT_TOKEN}" ]; then
+    echo
+    echo "Telegram: not configured"
+    echo "  To add later: edit /etc/korvin.env and run:"
+    echo "  sudo systemctl start korvin.service"
+  else
+    echo
+    echo "Telegram: active"
+  fi
+  echo
+  echo "Config: /etc/korvin.env"
+  echo "App: ${APP_DIR}"
 }
 
 main "$@"

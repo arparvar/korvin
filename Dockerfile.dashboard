@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements-base.txt .
+RUN pip install --no-cache-dir -r requirements-base.txt litellm
+COPY src/dashboard/ src/dashboard/
+COPY src/hermes/ src/hermes/
+RUN mkdir -p data
+ENV PYTHONUNBUFFERED=1
+EXPOSE 3002
+CMD ["uvicorn", "src.dashboard.main:app", "--host", "0.0.0.0", "--port", "3002"]

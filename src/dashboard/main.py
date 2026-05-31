@@ -89,23 +89,18 @@ def status():
 
 @app.get("/api/voice/status")
 def voice_status():
-    provider = os.environ.get("KORVIN_TTS_PROVIDER", "kokoro")
-    voice = os.environ.get("KORVIN_TTS_VOICE", "M1" if provider == "supertonic" else "bm_lewis")
+    voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
     if voice == "default":
         voice = "M1"
-    model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3" if provider == "supertonic" else "kokoro")
+    model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3")
     stt_model = os.environ.get("KORVIN_STT_MODEL", "tiny.en")
-    if provider == "supertonic":
-        tts_label = f"Supertonic {model} ({voice})"
-    else:
-        tts_label = f"Kokoro {voice}"
     return {
         "stt": "whisper",
         "stt_model": stt_model,
-        "tts_provider": provider,
+        "tts_provider": "supertonic",
         "tts_voice": voice,
         "tts_model": model,
-        "tts_label": tts_label,
+        "tts_label": f"Supertonic {model} ({voice})",
         "stt_label": f"Whisper {stt_model}"
     }
 
@@ -130,7 +125,7 @@ def health_check():
         key = os.environ.get("LITELLM_MASTER_KEY", "")
         resp = requests.get("http://127.0.0.1:4000/health",
                            headers={"Authorization": f"Bearer {key}"}, timeout=3)
-        health["litellm"] = "reachable" if resp.status_code == 200 else "error"
+        health["litellm"] = "reachable" if resp.status_code < 500 else "error"
     except Exception:
         health["litellm"] = "unreachable"
     if os.path.exists(DB_PATH):
@@ -481,11 +476,14 @@ def chat(body: ChatRequest):
     if result.stdout.strip():
         return JSONResponse({"reply": result.stdout.strip()})
 
+    _active = _read_active_model()
+    _model_name = MODEL_LABELS.get(_active, _active)
     messages = [{
         "role": "system",
         "content": (
-            "You are Korvin, a self-hosted personal AI agent. "
+            f"You are Korvin, a self-hosted personal AI agent powered by {_model_name}. "
             "You are helpful, concise, and warm. "
+            f"If asked what model you are, say you are Korvin powered by {_model_name}. "
             "Respond in English. You are speaking through a dashboard chat interface."
         )
     }]
@@ -716,12 +714,15 @@ async def voice_chat(file: UploadFile = File(...)):
 
     # LLM chat (same pipeline as /api/chat, skip injection check — audio is transcribed)
     chat_id = os.environ.get("KORVIN_CHAT_ID", "dashboard-chat")
+    _active_v = _read_active_model()
+    _model_name_v = MODEL_LABELS.get(_active_v, _active_v)
     messages = [{
         "role": "system",
         "content": (
-            "You are Korvin, a self-hosted personal AI agent. "
+            f"You are Korvin, a self-hosted personal AI agent powered by {_model_name_v}. "
             "You are helpful, concise, and warm. "
-            "Respond in English only. The user is speaking to you via voice — keep replies brief and conversational."
+            f"If asked what model you are, say you are Korvin powered by {_model_name_v}. "
+            "Respond in English only. The user is speaking to you via voice ??? keep replies brief and conversational."
         )
     }]
 
@@ -778,31 +779,27 @@ async def voice_chat(file: UploadFile = File(...)):
     except Exception:
         pass
 
-    # TTS
+    # TTS ??? Supertonic only
     audio_b64 = None
-    audio_fmt = "wav"
-    tts_provider = os.environ.get("KORVIN_TTS_PROVIDER", "kokoro")
-    if tts_provider == "supertonic":
-        tts_url = os.environ.get("KORVIN_TTS_URL", "http://127.0.0.1:7788/v1/audio/speech")
-        voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
-        if voice == "default":
-            voice = "M1"
-        tts_model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3")
-        audio_fmt = os.environ.get("KORVIN_TTS_FORMAT", "wav")
-        # Strip markdown from reply for TTS
-        import re as _re
-        reply_clean = _re.sub(r'\*\*(.*?)\*\*', r'\1', reply)
-        reply_clean = _re.sub(r'\*(.*?)\*', r'\1', reply_clean)
-        reply_clean = _re.sub(r'`(.*?)`', r'\1', reply_clean)
-        try:
-            tts_resp = requests.post(
-                tts_url,
-                json={"model": tts_model, "input": reply_clean, "voice": voice, "response_format": audio_fmt},
-                timeout=30
-            )
-            if tts_resp.ok:
-                audio_b64 = base64.b64encode(tts_resp.content).decode()
-        except Exception:
-            pass
+    audio_fmt = os.environ.get("KORVIN_TTS_FORMAT", "wav")
+    tts_url = os.environ.get("KORVIN_TTS_URL", "http://127.0.0.1:7788/v1/audio/speech")
+    tts_voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
+    if tts_voice == "default":
+        tts_voice = "M1"
+    tts_model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3")
+    import re as _re
+    reply_clean = _re.sub(r'\*\*(.*?)\*\*', r'\1', reply)
+    reply_clean = _re.sub(r'\*(.*?)\*', r'\1', reply_clean)
+    reply_clean = _re.sub(r'`(.*?)`', r'\1', reply_clean)
+    try:
+        tts_resp = requests.post(
+            tts_url,
+            json={"model": tts_model, "input": reply_clean, "voice": tts_voice, "response_format": audio_fmt},
+            timeout=30
+        )
+        if tts_resp.ok:
+            audio_b64 = base64.b64encode(tts_resp.content).decode()
+    except Exception:
+        pass
 
     return JSONResponse({"transcript": transcript, "reply": reply, "audio_base64": audio_b64, "audio_format": audio_fmt})

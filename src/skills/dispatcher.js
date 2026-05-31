@@ -223,6 +223,35 @@ async function dispatchSkill(text, chatId = 'default') {
     return 'Email integration is not configured yet. This feature requires OAuth setup with Gmail or Outlook. It will be available in v1.1.';
   }
 
+  match = message.match(/^\/skills\s+list/i);
+  if (match) {
+    return [
+      'Available skills:',
+      '??? research <topic> ??? web research and report',
+      '??? every <daily|hourly|weekly|Mon> do <action> ??? schedule a recurring task',
+      '??? remind me to <action> every <schedule> ??? same as above',
+      '??? write a <doctype> about <topic> ??? draft a document',
+      '??? security report ??? VPS health: disk, RAM, services',
+      '??? check vps / check services ??? same as security report',
+      '??? /skills list ??? show this list',
+      '??? /scan url <url> ??? research and summarize a URL',
+      '??? /patch <package> ??? check if a package has available updates',
+    ].join('\n');
+  }
+
+  match = message.match(/^\/scan\s+url\s+(\S+)/i);
+  if (match) return await runWebResearch(match[1].trim());
+
+  match = message.match(/^\/patch\s+(\S+)/i);
+  if (match) {
+    const pkg = match[1].trim().replace(/[^a-z0-9._+-]/gi, '');
+    const result = await execCommand(`apt list --upgradable 2>/dev/null | grep -i "^${pkg}"`);
+    if (result) {
+      return `Update available for ${pkg}:\n${result}\n\nTo apply: sudo apt-get install -y ${pkg}`;
+    }
+    return `${pkg} appears up to date ??? no pending upgrade found in apt.`;
+  }
+
   return null;
 }
 

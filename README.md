@@ -1,5 +1,7 @@
 # KORVIN
 
+**Version:** 1.0.0
+
 Website: https://korvin.cloud
 
 **Open-source, self-hosted AI agent framework for low-cost hardware. Voice-first. Memory-persistent. Model-agnostic. No lock-in.**

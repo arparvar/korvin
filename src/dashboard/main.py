@@ -9,7 +9,12 @@ from typing import Optional
 from collections import defaultdict
 import requests
 import base64
-import whisper
+try:
+    import whisper as _whisper_lib
+    _WHISPER_AVAILABLE = True
+except ImportError:
+    _whisper_lib = None
+    _WHISPER_AVAILABLE = False
 
 BASE_DIR = Path(__file__).parent.parent.parent
 APP_DIR = str(BASE_DIR)
@@ -69,8 +74,10 @@ _whisper_model = None
 
 def _get_whisper_model():
     global _whisper_model
+    if not _WHISPER_AVAILABLE:
+        return None
     if _whisper_model is None:
-        _whisper_model = whisper.load_model("tiny.en")
+        _whisper_model = _whisper_lib.load_model("tiny.en")
     return _whisper_model
 
 # ── Public endpoints ────────────────────────────────────────────────
@@ -650,6 +657,8 @@ def save_token_rates(body: TokenRatesRequest):
 
 @app.post("/api/stt", dependencies=[Depends(require_key)])
 async def transcribe_audio(file: UploadFile = File(...)):
+    if not _WHISPER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Voice features not installed. Run: pip install openai-whisper")
     MAX_SIZE = 10 * 1024 * 1024  # 10 MB
     content = await file.read()
     if len(content) > MAX_SIZE:
@@ -678,6 +687,8 @@ async def transcribe_audio(file: UploadFile = File(...)):
 @app.post("/api/voice/chat", dependencies=[Depends(require_key)])
 async def voice_chat(file: UploadFile = File(...)):
     """Accept audio file, STT → LLM → TTS, return transcript + reply + audio."""
+    if not _WHISPER_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Voice features not installed. Run: pip install openai-whisper")
     MAX_SIZE = 10 * 1024 * 1024
     content = await file.read()
     if len(content) > MAX_SIZE:

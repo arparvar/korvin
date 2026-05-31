@@ -308,6 +308,12 @@ main() {
   clone_repo
   install_app_deps
   install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}/data"
+  if [ -n "${GEMINI_API_KEY}" ]; then
+    printf "gemini-flash" > "${APP_DIR}/data/active_model.txt"
+  else
+    printf "deepseek-v4-pro" > "${APP_DIR}/data/active_model.txt"
+  fi
+  chown "${APP_USER}:${APP_USER}" "${APP_DIR}/data/active_model.txt"
   step 4 "Writing configuration"
   write_env_file "${TELEGRAM_BOT_TOKEN}" "${KORVIN_CHAT_ID}" "${DEEPSEEK_API_KEY}" "${GEMINI_API_KEY}" "${LITELLM_MASTER_KEY}" "${KORVIN_API_KEY}"
   write_config_json "${TELEGRAM_BOT_TOKEN}"

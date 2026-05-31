@@ -147,7 +147,7 @@ install_app_deps() {
   runuser -u "${APP_USER}" -- python3 -m venv "${APP_DIR}/venv"
   runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" -m pip install --upgrade pip setuptools wheel
   runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" -m pip install -r "${APP_DIR}/requirements.txt"
-  runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" -m pip install litellm
+  runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" -m pip install 'litellm[proxy]'
   runuser -u "${APP_USER}" -- npm --prefix "${APP_DIR}" install
 }
 

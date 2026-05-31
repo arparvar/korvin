@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from typing import Optional
 from collections import defaultdict
 import requests
+import base64
 import whisper
 
 BASE_DIR = Path(__file__).parent.parent.parent
@@ -653,3 +654,133 @@ async def transcribe_audio(file: UploadFile = File(...)):
         except:
             pass
     return {"text": text}
+
+@app.post("/api/voice/chat", dependencies=[Depends(require_key)])
+async def voice_chat(file: UploadFile = File(...)):
+    """Accept audio file, STT → LLM → TTS, return transcript + reply + audio."""
+    MAX_SIZE = 10 * 1024 * 1024
+    content = await file.read()
+    if len(content) > MAX_SIZE:
+        raise HTTPException(status_code=400, detail="Audio file too large (max 10 MB)")
+
+    # Determine suffix from filename or default to .webm
+    suffix = ".webm"
+    if file.filename:
+        fname = file.filename.lower()
+        for ext in [".wav", ".ogg", ".mp3", ".m4a", ".webm"]:
+            if fname.endswith(ext):
+                suffix = ext
+                break
+
+    # STT
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    transcript = ""
+    try:
+        tmp.write(content)
+        tmp.close()
+        model = _get_whisper_model()
+        result = model.transcribe(tmp.name, fp16=False, language="en")
+        transcript = result["text"].strip()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except Exception:
+            pass
+
+    if not transcript:
+        return JSONResponse({"error": "Could not transcribe audio"}, status_code=422)
+
+    # LLM chat (same pipeline as /api/chat, skip injection check — audio is transcribed)
+    chat_id = os.environ.get("KORVIN_CHAT_ID", "dashboard-chat")
+    messages = [{
+        "role": "system",
+        "content": (
+            "You are Korvin, a self-hosted personal AI agent. "
+            "You are helpful, concise, and warm. "
+            "Respond in English only. The user is speaking to you via voice — keep replies brief and conversational."
+        )
+    }]
+
+    if os.path.exists(DB_PATH):
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            rows = conn.execute(
+                "SELECT role, content FROM messages WHERE chat_id=? ORDER BY id DESC LIMIT 20",
+                (chat_id,)
+            ).fetchall()
+            conn.close()
+            for r in reversed(rows):
+                messages.append({"role": r[0], "content": r[1]})
+        except Exception:
+            pass
+
+    messages.append({"role": "user", "content": transcript})
+
+    litellm_url = "http://127.0.0.1:4000/v1/chat/completions"
+    litellm_key = os.environ.get("LITELLM_MASTER_KEY", "")
+    try:
+        resp = requests.post(
+            litellm_url,
+            headers={"Content-Type": "application/json", "Authorization": f"Bearer {litellm_key}"},
+            json={
+                "model": _read_active_model(),
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 512,
+                "stream": False
+            },
+            timeout=_read_chat_timeout()
+        )
+        if not resp.ok:
+            return JSONResponse({"transcript": transcript, "reply": f"LLM error {resp.status_code}", "audio_base64": None})
+        data = resp.json()
+        reply = _redact_sensitive(data["choices"][0]["message"]["content"])
+    except Exception as e:
+        return JSONResponse({"transcript": transcript, "reply": f"Error: {str(e)}", "audio_base64": None})
+
+    # Persist to memory
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.execute(
+            "INSERT INTO messages (chat_id, role, content, source, timestamp) VALUES (?,?,?,?,?)",
+            (chat_id, "user", transcript, "dashboard-voice", datetime.utcnow().isoformat())
+        )
+        conn.execute(
+            "INSERT INTO messages (chat_id, role, content, source, timestamp) VALUES (?,?,?,?,?)",
+            (chat_id, "assistant", reply, "dashboard-voice", datetime.utcnow().isoformat())
+        )
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+    # TTS
+    audio_b64 = None
+    audio_fmt = "wav"
+    tts_provider = os.environ.get("KORVIN_TTS_PROVIDER", "kokoro")
+    if tts_provider == "supertonic":
+        tts_url = os.environ.get("KORVIN_TTS_URL", "http://127.0.0.1:7788/v1/audio/speech")
+        voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
+        if voice == "default":
+            voice = "M1"
+        tts_model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3")
+        audio_fmt = os.environ.get("KORVIN_TTS_FORMAT", "wav")
+        # Strip markdown from reply for TTS
+        import re as _re
+        reply_clean = _re.sub(r'\*\*(.*?)\*\*', r'\1', reply)
+        reply_clean = _re.sub(r'\*(.*?)\*', r'\1', reply_clean)
+        reply_clean = _re.sub(r'`(.*?)`', r'\1', reply_clean)
+        try:
+            tts_resp = requests.post(
+                tts_url,
+                json={"model": tts_model, "input": reply_clean, "voice": voice, "response_format": audio_fmt},
+                timeout=30
+            )
+            if tts_resp.ok:
+                audio_b64 = base64.b64encode(tts_resp.content).decode()
+        except Exception:
+            pass
+
+    return JSONResponse({"transcript": transcript, "reply": reply, "audio_base64": audio_b64, "audio_format": audio_fmt})

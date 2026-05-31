@@ -296,9 +296,9 @@ main() {
   read_optional_telegram_token
   read_optional_chat_id
   read_llm_key
-  read_secret "Dashboard security key (choose any strong password)" KORVIN_API_KEY
+  KORVIN_API_KEY=$(openssl rand -hex 16 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(16))")
   LITELLM_MASTER_KEY=$(openssl rand -hex 32 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(32))")
-  echo "Internal LiteLLM key: auto-generated"
+  echo "Dashboard key and internal LiteLLM key: auto-generated"
 
   step 1 "Checking and installing system dependencies"
   install_system_deps

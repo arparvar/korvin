@@ -285,6 +285,28 @@ The installer starts the dashboard at:
 http://127.0.0.1:3002
 ```
 
+## Post-Install Security Check
+
+After install, run these three commands to verify your setup is secure:
+
+**1. Check port binding (LiteLLM must be on 127.0.0.1 only):**
+```bash
+ss -tlnp | grep 4000
+```
+Expected: `127.0.0.1:4000` - if you see `0.0.0.0:4000`, run `sudo bash scripts/fix-litellm-port.sh`
+
+**2. Confirm no secrets in logs:**
+```bash
+grep -rE "(sk-|bearer |api_key)" /home/korvin/korvin/logs/ 2>/dev/null | head -5
+```
+Expected: no output.
+
+**3. Run the smoke test:**
+```bash
+bash /home/korvin/korvin/test/smoke.sh
+```
+Expected: `10/10 checks passed`
+
 Because it binds to `127.0.0.1`, it is not public by default. Point your Cloudflare Access application, tunnel, or reverse proxy at the local dashboard service on the VPS:
 
 ```text

@@ -1,4 +1,4 @@
-import os, sqlite3, subprocess, re, json, time, tempfile
+import os, sqlite3, subprocess, re, json, time, tempfile, math
 from datetime import datetime, date
 from pathlib import Path
 from fastapi import FastAPI, Header, HTTPException, Depends, File, UploadFile
@@ -409,17 +409,26 @@ def _telegram_send(chat_id: str, text: str):
 
 # ── Chat ────────────────────────────────────────────────────────────────
 CHAT_RATE_LIMIT_WINDOW = 60
-CHAT_RATE_LIMIT_MAX    = 10
+CHAT_RATE_LIMIT_MAX    = 20
 _chat_ratelimit: dict[str, list[float]] = defaultdict(list)
 
 def _check_chat_rate_limit(session_id: str):
     now = time.time()
     window = CHAT_RATE_LIMIT_WINDOW
+    cutoff = now - window
+
+    for key in list(_chat_ratelimit.keys()):
+        _chat_ratelimit[key] = [t for t in _chat_ratelimit[key] if t > cutoff]
+        if not _chat_ratelimit[key]:
+            del _chat_ratelimit[key]
+
     timestamps = _chat_ratelimit[session_id]
-    _chat_ratelimit[session_id] = [t for t in timestamps if now - t < window]
-    if len(_chat_ratelimit[session_id]) >= CHAT_RATE_LIMIT_MAX:
-        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again in a minute.")
+    if len(timestamps) >= CHAT_RATE_LIMIT_MAX:
+        retry_after = max(1, math.ceil(timestamps[0] + window - now))
+        return False, retry_after
+
     _chat_ratelimit[session_id].append(now)
+    return True, 0
 
 class ChatRequest(BaseModel):
     message: str
@@ -428,7 +437,12 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat", dependencies=[Depends(require_key)])
 def chat(body: ChatRequest):
     chat_id = body.chat_id or os.environ.get("KORVIN_CHAT_ID", "dashboard-chat")
-    _check_chat_rate_limit(chat_id)
+    allowed, retry_after = _check_chat_rate_limit(chat_id)
+    if not allowed:
+        return JSONResponse(
+            {"error": "Too many requests", "retryAfterSeconds": retry_after},
+            status_code=429
+        )
     message_text = body.message
     if re.search(r'ignore\s+(all\s+)?(previous|prior|above)\s+instructions?|you\s+are\s+now|jailbreak|system\s*:|(?:reveal|show|print|dump)\s+(?:your\s+)?system\s+prompt', message_text, re.IGNORECASE):
         raise HTTPException(status_code=400, detail="Input blocked: prompt injection pattern detected.")

@@ -31,6 +31,13 @@ LOG_SANITIZE = re.compile(
     r'(Traceback \(most recent call last\)|File "/.*?"|^\s+.*\.py.*$)',
     re.MULTILINE
 )
+SECRET_SANITIZE = re.compile(
+    r'(sk-[A-Za-z0-9_-]{8,}|Bearer\s+[A-Za-z0-9._-]{8,}|(?:api[_-]?key|token|secret)\s*[:=]\s*["\']?[^"\'\s]+)',
+    re.IGNORECASE
+)
+
+def _redact_sensitive(text: str) -> str:
+    return SECRET_SANITIZE.sub("[REDACTED_SECRET]", str(text or ""))
 
 def _read_chat_timeout():
     try:
@@ -202,7 +209,7 @@ def get_logs(lines: int = 100):
             ["journalctl", "-u", "korvin-dashboard", f"-n{lines}", "--no-pager"],
             stderr=subprocess.STDOUT
         ).decode()
-        sanitized = LOG_SANITIZE.sub("[sanitized]", output)
+        sanitized = _redact_sensitive(LOG_SANITIZE.sub("[sanitized]", output))
         return {"lines": sanitized.strip().splitlines()}
     except Exception as e:
         return {"lines": [], "error": str(e)}
@@ -423,6 +430,8 @@ def chat(body: ChatRequest):
     chat_id = body.chat_id or os.environ.get("KORVIN_CHAT_ID", "dashboard-chat")
     _check_chat_rate_limit(chat_id)
     message_text = body.message
+    if re.search(r'ignore\s+(all\s+)?(previous|prior|above)\s+instructions?|you\s+are\s+now|jailbreak|system\s*:|(?:reveal|show|print|dump)\s+(?:your\s+)?system\s+prompt', message_text, re.IGNORECASE):
+        raise HTTPException(status_code=400, detail="Input blocked: prompt injection pattern detected.")
 
     result = subprocess.run(
         ['node', '-e', 'const d=require("./src/skills/dispatcher"); d.dispatchSkill(process.env.MSG,"dashboard").then(r=>process.stdout.write(r||"")).catch(()=>process.stdout.write(""))'],
@@ -472,6 +481,7 @@ def chat(body: ChatRequest):
                 "model": _read_active_model(),
                 "messages": messages,
                 "temperature": 0.7,
+                "max_tokens": 2048,
                 "stream": False
             },
             timeout=_read_chat_timeout()
@@ -479,7 +489,7 @@ def chat(body: ChatRequest):
         if not resp.ok:
             return {"reply": f"LiteLLM error: {resp.status_code}", "error": True}
         data = resp.json()
-        reply = data["choices"][0]["message"]["content"]
+        reply = _redact_sensitive(data["choices"][0]["message"]["content"])
         used = data.get("usage", {}).get("total_tokens", 0)
         if used > _read_token_warning():
             reply += f"\n\n💰 This response used {used:,} tokens. You can adjust the warning threshold in Settings → Token Budget Warning."
@@ -493,7 +503,7 @@ def chat(body: ChatRequest):
         err_msg = str(e)
         if "Read timed out" in err_msg or "timed out" in err_msg:
             return {"reply": f"The AI took too long to respond (current timeout: {_read_chat_timeout()}s). You can increase this in Settings → Chat Timeout.", "error": True}
-        return {"reply": f"Error: {err_msg}", "error": True}
+        return {"reply": _redact_sensitive(f"Error: {err_msg}"), "error": True}
 
     try:
         conn = sqlite3.connect(DB_PATH)

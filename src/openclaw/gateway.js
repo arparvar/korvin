@@ -77,8 +77,8 @@ function clearPreferences() {
 const API_KEY = process.env.LITELLM_MASTER_KEY;
 if (!API_KEY) throw new Error('LITELLM_MASTER_KEY not set in /etc/korvin.env');
 
-const { sanitize: defendSanitize } = require('../security/defender');
-const { sanitize: inputSanitize } = require('../middleware/sanitizer');
+const { defend } = require('../security/defender');
+const { sanitize: inputSanitize, redactSensitive } = require('../middleware/sanitizer');
 const { execSync } = require('child_process');
 const { dispatchSkill } = require('../skills/dispatcher');
 
@@ -134,7 +134,9 @@ function trackTokenUsage(model, tokens) {
 async function sendMessage(userMessage, chatId = 'default', preferences = []) {
   const check = inputSanitize(userMessage);
   if (!check.safe) throw new Error(`Input blocked: ${check.reason}`);
-  const safeMessage = defendSanitize(check.value);
+  const defended = defend(check.value);
+  if (defended.blocked) throw new Error('Input blocked: prompt injection pattern detected.');
+  const safeMessage = redactSensitive(defended.text);
   const skillResult = await dispatchSkill(safeMessage, chatId);
   if (skillResult !== null) {
     saveMessage(chatId, 'user', safeMessage);
@@ -163,7 +165,7 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
       response = await fetch(LITELLM_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
-        body: JSON.stringify({ model: getActiveModel(), messages, temperature: 0.7, stream: false }),
+        body: JSON.stringify({ model: getActiveModel(), messages, temperature: 0.7, max_tokens: 2048, stream: false }),
         signal: controller.signal
       });
       clearTimeout(timer);
@@ -185,7 +187,7 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
   }
   if (!response.ok) throw new Error(`LiteLLM error: ${response.status} ${response.statusText}`);
   const data = await response.json();
-  const reply = data.choices[0].message.content;
+  const reply = redactSensitive(data.choices[0].message.content);
 
   const used = (data.usage && data.usage.total_tokens) || 0;
   const threshold = readTokenWarningThreshold();

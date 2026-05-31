@@ -2,6 +2,7 @@
 
 const { runInit } = require('./commands/init');
 const { runDoctor } = require('./commands/doctor');
+const { runSetup } = require('./commands/setup');
 const packageJson = require('../../package.json');
 
 function getHelpText() {
@@ -15,12 +16,15 @@ Available commands:
   korvin init <folder> --voice   Also prepare placeholder voice folders
   korvin doctor                  Check local environment and default setup folder
   korvin doctor <folder>         Check a specific local KORVIN setup folder
+  korvin setup                   Guided setup wizard ? creates your .env and shows next steps
 
 Examples:
   korvin init ./korvin-local
   korvin init ./korvin-local --voice
   korvin doctor
   korvin doctor ./korvin-local
+  korvin setup
+  korvin setup --dir ./my-korvin
 
 Current boundaries:
   - Local setup files and checks only
@@ -75,6 +79,11 @@ async function main(argv) {
 
   if (command === 'doctor') {
     await runDoctor(argv.slice(3));
+    return;
+  }
+
+  if (command === 'setup') {
+    await runSetup(argv.slice(3));
     return;
   }
 

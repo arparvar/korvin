@@ -156,6 +156,10 @@ function cleanup(...files) {
   }
 }
 
+function sendKeyboard(chatId, text, keyboard) {
+  return bot.sendMessage(chatId, text, { parse_mode: 'Markdown', reply_markup: { inline_keyboard: keyboard } });
+}
+
 function formatError(action, error) {
   const reason = error.message || 'an unexpected error occurred';
   return `Couldn't ${action} because ${reason}.`;
@@ -331,7 +335,21 @@ bot.onText(/\/pending/, (msg) => {
 });
 
 // ── Phase B Commands ──────────────────────────────────────────────────────────
-const commandDeps = { confirmationGate, logActivity };
+bot.on('callback_query', async (query) => {
+  const data = query.data || '';
+  const userId = String(query.from.id);
+  const chatId = query.message && query.message.chat.id;
+  let result;
+  if (data.startsWith('confirm:')) {
+    result = confirmAction(data.slice(8), userId);
+  } else if (data.startsWith('cancel:')) {
+    result = cancelAction(data.slice(7), userId);
+  } else return bot.answerCallbackQuery(query.id);
+  await bot.answerCallbackQuery(query.id, { text: result.message });
+  if (chatId) await bot.sendMessage(chatId, result.message);
+});
+
+const commandDeps = { confirmationGate, logActivity, sendKeyboard };
 registerPatch(bot, commandDeps);
 registerScan(bot, commandDeps);
 

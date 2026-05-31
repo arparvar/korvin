@@ -235,6 +235,7 @@ async function dispatchSkill(text, chatId = 'default') {
       '??? check vps / check services ??? same as security report',
       '??? /skills list ??? show this list',
       '??? /scan url <url> ??? research and summarize a URL',
+      '  /scan deps ? list Node.js and Python dependencies (read-only)',
       '??? /patch <package> ??? check if a package has available updates',
     ].join('\n');
   }

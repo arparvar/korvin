@@ -14,19 +14,19 @@
       <a href="https://nosistech.com">NosisTech</a>
       <a href="https://github.com/nosistech/korvin">GitHub</a>
       <a href="https://www.npmjs.com/package/@nosistech/korvin">npm</a>
-      <a href="https://github.com/nosistech/korvin/blob/main/docs/quickstart.md">Docs</a>
+      <a href="https://github.com/nosistech/korvin/blob/main/quickstart.md">Docs</a>
       <button class="theme-toggle" id="themeToggle" type="button">Light</button>
     </nav>
   </header>
   <main>
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Open-source. Self-hosted. No lock-in. v0.1.11</p>
+        <p class="eyebrow">Open-source. Self-hosted. No lock-in. v1.0.0</p>
         <h1>Self-hosted AI agents for low-cost hardware.</h1>
         <p class="hero-subtitle">Voice-first. Memory-persistent. Model-agnostic. No lock-in.</p>
         <p class="hero-text">KORVIN is a personal AI agent that runs on your own machine. Start with API keys. Graduate to fully self-hosted local models. Your data never leaves your infrastructure.</p>
         <div class="cta-row">
-          <a class="button primary" href="https://github.com/nosistech/korvin/blob/main/docs/quickstart.md">Get Started</a>
+          <a class="button primary" href="https://github.com/nosistech/korvin/blob/main/quickstart.md">Get Started</a>
           <a class="button secondary" href="https://github.com/nosistech/korvin">View on GitHub</a>
           <a class="button ghost" href="https://www.npmjs.com/package/@nosistech/korvin">npm package</a>
         </div>
@@ -34,9 +34,9 @@
       <div class="terminal-card" aria-label="Live system status">
         <div class="terminal-top"><span></span><span></span><span></span></div>
         <pre><code>Agent:   running
-Model:   deepseek-v4-pro via LiteLLM
+Model:   DeepSeek / Gemini via LiteLLM
 Channel: Telegram active
-Voice:   Whisper STT + Kokoro TTS
+Voice:   Whisper STT
 Memory:  SQLite persistent</code></pre>
       </div>
     </section>
@@ -47,11 +47,11 @@ Memory:  SQLite persistent</code></pre>
       </div>
       <div class="grid">
         <article class="card"><h3>Telegram interface</h3><p>Send text or voice messages. Korvin replies in text or speaks back.</p></article>
-        <article class="card"><h3>Voice - Whisper + Kokoro</h3><p>Speech-to-text via Whisper tiny.en (~2s on a $5 VPS). Text-to-speech via Kokoro.</p></article>
+        <article class="card"><h3>Voice - Whisper STT</h3><p>Speech-to-text via Whisper tiny.en (~2s on a $5 VPS). Optional TTS can be added when needed.</p></article>
         <article class="card"><h3>Persistent memory</h3><p>Every conversation stored in SQLite. Sliding window keeps the agent alive forever.</p></article>
         <article class="card"><h3>Model switching</h3><p>Tap a model in the dashboard. No restart. DeepSeek, Gemini, Claude, or local Ollama.</p></article>
-        <article class="card"><h3>Web research</h3><p>Type "Research topic" in Telegram. Korvin searches the web and replies with a summary.</p></article>
-        <article class="card"><h3>Security tools</h3><p>/scan checks against 90+ VirusTotal engines. /patch returns CVE severity and patch advice.</p></article>
+        <article class="card"><h3>5 skills: research, scheduling, drafting, security, inbox</h3><p>Web research, scheduled jobs, structured document drafts, VPS security reporting, and inbox triage are wired through Telegram and dashboard chat.</p></article>
+        <article class="card"><h3>Rate limited & OWASP reviewed</h3><p>Per-user rate limiting (20 req/60s). OWASP LLM Top 10 2025 reviewed. Prompt injection blocking. Output secret redaction. Automated smoke test included.</p></article>
       </div>
     </section>
     <section class="section split">
@@ -83,20 +83,22 @@ Memory:  SQLite persistent</code></pre>
       </div>
       <div class="terminal-card" style="max-width:640px;margin:0 auto">
         <div class="terminal-top"><span></span><span></span><span></span></div>
-        <pre><code>Research climate change   - web search and summary
-/scan google.com          - VirusTotal check
-/patch openssl            - CVE severity and patch advice
-/status                   - VPS health report
+        <pre><code>Research [topic]          - web search + summary
+Schedule [task] at [time] - cron job, runs automatically
+Draft [document type]     - structured document output
+/security                 - VPS security report
+/inbox                    - message triage summary
+/scan [domain]            - VirusTotal check
+/status                   - live VPS health
 /brief                    - toggle one-sentence mode
-/grill topic              - clarifying questions first
-/rule add use plain text  - teach Korvin preferences
 /log                      - recent activity</code></pre>
       </div>
     </section>
     <section class="section">
       <div class="section-heading"><p class="eyebrow">Documentation</p><h2>Everything you need to get running.</h2></div>
       <div class="doc-grid">
-        <a href="https://github.com/nosistech/korvin/blob/main/docs/quickstart.md">Quickstart</a>
+        <a href="https://github.com/nosistech/korvin/blob/main/quickstart.md">Quickstart</a>
+        <a href="https://github.com/nosistech/korvin/blob/main/quickstart-es.md">Quickstart (Español)</a>
         <a href="https://github.com/nosistech/korvin/blob/main/docs/commands.md">Commands</a>
         <a href="https://github.com/nosistech/korvin/blob/main/docs/configuration.md">Configuration</a>
         <a href="https://github.com/nosistech/korvin/blob/main/docs/deployment.md">Deployment</a>
@@ -106,17 +108,16 @@ Memory:  SQLite persistent</code></pre>
       <p class="eyebrow">Roadmap</p>
       <h2>What is still being built.</h2>
       <ul>
-        <li>One-command Docker install</li>
         <li>WhatsApp, Discord, Signal channels</li>
-        <li>Document drafting and inbox summarization</li>
         <li>RAG over local documents</li>
         <li>Wake-word voice client</li>
         <li>Multi-agent orchestration</li>
+        <li>Tested Docker compose deploy</li>
       </ul>
     </section>
   </main>
   <footer class="footer">
-    <p>MIT License. v0.1.11. Built by <a href="https://nosistech.com">Carlos Paredes, NosisTech LLC</a>.</p>
+    <p>MIT License. v1.0.0. Built by <a href="https://nosistech.com">Carlos Paredes, NosisTech LLC</a>.</p>
     <div><a href="https://nosistech.com">NosisTech</a><a href="https://github.com/nosistech/korvin">GitHub</a><a href="https://www.npmjs.com/package/@nosistech/korvin">npm</a></div>
   </footer>
 <script>const button=document.getElementById("themeToggle");const saved=localStorage.getItem("korvin-theme");if(saved==="light"){document.body.classList.add("light");button.textContent="Dark";}button.addEventListener("click",()=>{document.body.classList.toggle("light");const isLight=document.body.classList.contains("light");button.textContent=isLight?"Dark":"Light";localStorage.setItem("korvin-theme",isLight?"light":"dark");});</script>

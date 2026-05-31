@@ -281,6 +281,12 @@ MODEL_WHITELIST = {
     "gemini-flash":         "gemini/gemini-2.5-flash",
 }
 
+MODEL_KEY_REQUIREMENTS = {
+    "deepseek-v4-pro":   "DEEPSEEK_API_KEY",
+    "deepseek-v4-flash": "DEEPSEEK_API_KEY",
+    "gemini-flash":      "GEMINI_API_KEY",
+}
+
 def _read_active_model():
     try:
         with open(ACTIVE_MODEL_PATH) as f:
@@ -370,6 +376,9 @@ def switch_model(body: SwitchModelRequest):
 def get_models():
     models = []
     for slug, model_string in MODEL_WHITELIST.items():
+        required_key = MODEL_KEY_REQUIREMENTS.get(slug)
+        if required_key and not os.environ.get(required_key, "").strip():
+            continue
         models.append({
             "slug": slug,
             "label": MODEL_LABELS.get(slug, slug),

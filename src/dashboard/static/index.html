@@ -185,6 +185,7 @@
     </div>
     <div style="border-top:1px solid var(--border);padding:12px;display:flex;gap:8px;">
       <input class="search-input" id="chat-input" type="text" placeholder="Type a message…" style="margin:0;flex:1;" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="apply-btn" id="mic-btn" onclick="toggleMic()" style="margin:0;white-space:nowrap;min-width:44px;" title="Hold to record voice message">🎤</button>
       <button class="apply-btn" id="chat-send-btn" onclick="sendChat()" style="margin:0;white-space:nowrap;">Send</button>
     </div>
   </div>
@@ -356,6 +357,80 @@ const API_KEY = '__KORVIN_API_KEY__';
 const AUTH = { 'X-Korvin-Key': API_KEY };
 
 let allMessages = [];
+let _micRecorder = null;
+let _micChunks = [];
+let _micStream = null;
+
+function toggleMic() {
+  if (_micRecorder && _micRecorder.state === 'recording') {
+    _micRecorder.stop();
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('Microphone not supported in this browser or context (HTTPS required).');
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+    _micStream = stream;
+    _micChunks = [];
+    _micRecorder = new MediaRecorder(stream);
+    _micRecorder.ondataavailable = function(e) { if (e.data.size > 0) _micChunks.push(e.data); };
+    _micRecorder.onstop = function() {
+      if (_micStream) { _micStream.getTracks().forEach(function(t) { t.stop(); }); _micStream = null; }
+      const blob = new Blob(_micChunks, { type: 'audio/webm' });
+      _micChunks = [];
+      _micRecorder = null;
+      sendVoiceChat(blob);
+    };
+    _micRecorder.start();
+    const btn = document.getElementById('mic-btn');
+    btn.textContent = '⏹';
+    btn.style.background = '#c0392b';
+  }).catch(function(err) {
+    alert('Microphone access denied: ' + err.message);
+  });
+}
+
+async function sendVoiceChat(blob) {
+  const btn = document.getElementById('mic-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳';
+  btn.style.background = '';
+  try {
+    const form = new FormData();
+    form.append('file', blob, 'voice.webm');
+    const r = await fetch('/api/voice/chat', { method: 'POST', headers: AUTH, body: form });
+    const d = await r.json();
+    if (d.error && !d.transcript) {
+      appendChatMessage('system', 'Voice error: ' + d.error);
+      return;
+    }
+    if (d.transcript) appendChatMessage('user', d.transcript, 'dashboard-voice');
+    if (d.reply) {
+      appendChatMessage('assistant', d.reply, 'dashboard-voice');
+      document.getElementById('chat-messages').scrollTop = 99999;
+    }
+    if (d.audio_base64) {
+      try {
+        const bytes = atob(d.audio_base64);
+        const arr = new Uint8Array(bytes.length);
+        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+        const mimeType = (d.audio_format === 'mp3') ? 'audio/mpeg' : 'audio/wav';
+        const audioBlob = new Blob([arr], { type: mimeType });
+        const url = URL.createObjectURL(audioBlob);
+        const audio = new Audio(url);
+        audio.play();
+        audio.onended = function() { URL.revokeObjectURL(url); };
+      } catch(e) { /* audio playback failed silently */ }
+    }
+  } catch(e) {
+    appendChatMessage('system', 'Voice chat error: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🎤';
+    btn.style.background = '';
+  }
+}
 let killActive = false;
 let cwLimit = 46;
 let configMaxTokens = 128000;

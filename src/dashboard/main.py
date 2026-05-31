@@ -292,7 +292,7 @@ def _read_active_model():
         with open(ACTIVE_MODEL_PATH) as f:
             return f.read().strip()
     except Exception:
-        return "deepseek-v4-pro"
+        return os.environ.get("KORVIN_MODEL", "deepseek-v4-pro")
 
 def _write_active_model(slug: str):
     os.makedirs(os.path.dirname(ACTIVE_MODEL_PATH), exist_ok=True)

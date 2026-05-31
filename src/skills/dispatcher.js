@@ -39,6 +39,7 @@ async function callLiteLLM(systemPrompt, userMessage) {
         { role: 'user', content: userMessage },
       ],
       temperature: 0.5,
+      max_tokens: 2048,
       stream: false,
     }),
   });
@@ -151,7 +152,7 @@ async function runWebResearch(topic) {
   const result = await executeSkill('web-researcher', async () => {
     const raw = await researchTopic(topic);
     const report = await callLiteLLM(
-      'Synthesize these search results into a brief structured report with: Summary, Key Findings, and Sources.',
+      'Synthesize these search results into a brief structured report with: Summary, Key Findings, Sources, and Uncertainty. Do not overstate claims when sources are thin.',
       raw
     );
     return SkillResult.success(report, { topic });

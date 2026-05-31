@@ -192,6 +192,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=${APP_USER}
+Group=${APP_USER}
 WorkingDirectory=${APP_HOME}
 EnvironmentFile=${ENV_FILE}
 ExecStart=${APP_DIR}/venv/bin/litellm --config ${LITELLM_CONFIG} --host 127.0.0.1 --port 4000

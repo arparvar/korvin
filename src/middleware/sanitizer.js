@@ -19,6 +19,7 @@ const INJECTION_PATTERNS = [
   /act\s+as\s+if\s+you\s+have\s+no\s+(restrictions|limits|rules)/i,
   /pretend\s+you\s+(are|have)\s+no\s+(restrictions|limits|rules)/i,
   /override\s+(safety|security|restrictions?|rules?)/i,
+  /(?:reveal|show|print|dump)\s+(?:your\s+)?system\s+prompt/i,
   /sudo\s+mode/i,
   /developer\s+mode/i,
 ];
@@ -32,6 +33,20 @@ const COMMAND_INJECTION_PATTERNS = [
   /exec\s*\(/i,
   /require\s*\(\s*['"`]child_process/i,
 ];
+
+const SENSITIVE_PATTERNS = [
+  [/\bsk-[A-Za-z0-9_-]{8,}\b/g, '[REDACTED_API_KEY]'],
+  [/\bBearer\s+[A-Za-z0-9._-]{8,}/gi, 'Bearer [REDACTED_TOKEN]'],
+  [/\b(api[_-]?key|token|secret)\s*[:=]\s*["']?[^"'\s]+/gi, '$1=[REDACTED_SECRET]'],
+  [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]'],
+];
+
+function redactSensitive(text) {
+  return SENSITIVE_PATTERNS.reduce(
+    (safe, [pattern, replacement]) => safe.replace(pattern, replacement),
+    String(text || '')
+  );
+}
 
 /**
  * Sanitize a raw user input string.
@@ -98,4 +113,4 @@ function sanitizeInput(rawText) {
   return sanitize(rawText);
 }
 
-module.exports = { sanitize, sanitizeObject, sanitizeInput, MAX_INPUT_LENGTH };
+module.exports = { sanitize, sanitizeObject, sanitizeInput, redactSensitive, MAX_INPUT_LENGTH };

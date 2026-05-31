@@ -3,9 +3,11 @@
 
 'use strict';
 
+require('../security/log-redact').installLogRedaction();
+
 const TelegramBot = require('node-telegram-bot-api');
 const { exec, execSync } = require('child_process');
-const { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, summarizeSession } = require('./gateway');
+const { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession } = require('./gateway');
 const { researchTopic } = require('../skills/research');
 const fs = require('fs');
 const path = require('path');
@@ -97,9 +99,10 @@ function generateSpeech(text, outputPath) {
   return new Promise((resolve, reject) => {
     const textFile = '/tmp/korvin_tts_input.txt';
     const ttsText = text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/`(.*?)`/g, '$1');
-    fs.writeFileSync(textFile, ttsText, 'utf8');
-    exec(
-      `cd ${ROOT} && venv/bin/python3 -c "
+    const runKokoro = () => {
+      fs.writeFileSync(textFile, ttsText, 'utf8');
+      exec(
+        `cd ${ROOT} && venv/bin/python3 -c "
 import warnings, sys
 warnings.filterwarnings('ignore')
 sys.path.insert(0, 'src/voice')
@@ -107,8 +110,35 @@ from voice import generate_speech
 text = open('/tmp/korvin_tts_input.txt').read()
 generate_speech(text, '${outputPath}')
 "`,
-      (err) => err ? reject(err) : resolve(outputPath)
-    );
+        (err) => err ? reject(err) : resolve(outputPath)
+      );
+    };
+
+    if (process.env.KORVIN_TTS_PROVIDER === 'supertonic') {
+      const voice = process.env.KORVIN_TTS_VOICE === 'default' ? 'M1' : (process.env.KORVIN_TTS_VOICE || 'M1');
+      fetch(process.env.KORVIN_TTS_URL || 'http://127.0.0.1:7788/v1/audio/speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: process.env.KORVIN_TTS_MODEL || 'supertonic-3',
+          input: ttsText,
+          voice,
+          response_format: process.env.KORVIN_TTS_FORMAT || 'wav'
+        })
+      }).then(async (response) => {
+        if (response.ok) {
+          fs.writeFileSync(outputPath, Buffer.from(await response.arrayBuffer()));
+          return resolve(outputPath);
+        }
+        console.warn('[Korvin] Supertonic TTS failed, falling back to Kokoro:', `${response.status} ${response.statusText}`);
+        runKokoro();
+      }).catch((err) => {
+        console.warn('[Korvin] Supertonic TTS failed, falling back to Kokoro:', err.message || err);
+        runKokoro();
+      });
+      return;
+    }
+    runKokoro();
   });
 }
 
@@ -368,6 +398,24 @@ bot.onText(/^\/summarize$/, async (msg) => {
   const activeModel = getActiveModel();
   const summary = await summarizeSession(userId, activeModel);
   await bot.sendMessage(chatId, `*Session summary:*\n${summary}`, { parse_mode: 'Markdown' });
+});
+
+bot.onText(/^\/search (.+)/, async (msg, match) => {
+  const query = match[1].trim();
+  try {
+    const results = await searchMessages(String(msg.chat.id), query, 5);
+    if (results.length === 0) {
+      await bot.sendMessage(msg.chat.id, `No messages found matching "${query}".`);
+      return;
+    }
+    const lines = results.map((result, i) => {
+      const preview = result.content.length > 120 ? result.content.substring(0, 120) + '???' : result.content;
+      return `${i + 1}. ${result.role}: ${preview}`;
+    });
+    await bot.sendMessage(msg.chat.id, lines.join('\n'));
+  } catch (err) {
+    await bot.sendMessage(msg.chat.id, `Search failed: ${err.message}`);
+  }
 });
 
 // ── Text Handler ──────────────────────────────────────────────────────────────

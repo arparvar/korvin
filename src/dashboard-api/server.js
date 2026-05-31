@@ -5,7 +5,7 @@
 
 const express = require('express');
 const systemRouter = require('./routes/system');
-const { sendMessage } = require('../openclaw/gateway');
+const { sendMessage, resetSession } = require('../openclaw/gateway');
 const { checkRateLimit } = require('../security/rate-limiter');
 
 const app = express();
@@ -47,6 +47,14 @@ app.post('/chat', async (req, res) => {
   } catch (err) {
     return res.status(500).json({ error: 'Failed to process chat request' });
   }
+});
+
+app.post('/api/session/reset', async (req, res) => {
+  const userId = req.ip || 'dashboard';
+  const rateLimit = checkRateLimit(userId);
+  if (!rateLimit.allowed) return res.status(429).json({ error: 'Too many requests' });
+  const count = await resetSession(userId);
+  return res.json({ cleared: count });
 });
 
 // Health ping

@@ -30,7 +30,7 @@ read_secret() {
   local value=""
 
   while [ -z "${value}" ]; do
-    read -rsp "${prompt}: " value
+    read -r -s -p "${prompt}: " value
     echo
     if [ -z "${value}" ]; then
       echo "This value is required."
@@ -38,6 +38,46 @@ read_secret() {
   done
 
   printf -v "${var_name}" "%s" "${value}"
+}
+
+read_optional_telegram_token() {
+  local value=""
+
+  while true; do
+    echo "Telegram Bot Token (optional - skip to use dashboard only, press Enter to skip):"
+    read -r -s value
+    echo
+
+    if [ -z "${value}" ]; then
+      TELEGRAM_BOT_TOKEN=""
+      echo "Telegram: skipped (dashboard-only mode)"
+      return
+    fi
+
+    if [ "${#value}" -gt 20 ] && [[ "${value}" == *:* ]]; then
+      TELEGRAM_BOT_TOKEN="${value}"
+      echo "Telegram: token set"
+      return
+    fi
+
+    echo "Invalid Telegram token format. It should contain ':' and be longer than 20 characters."
+  done
+}
+
+read_optional_chat_id() {
+  local value=""
+
+  echo "Korvin Chat ID (optional - press Enter to skip):"
+  read -r -s value
+  echo
+
+  if [ -z "${value}" ]; then
+    KORVIN_CHAT_ID=""
+    echo "Korvin Chat ID: skipped"
+  else
+    KORVIN_CHAT_ID="${value}"
+    echo "Korvin Chat ID: set"
+  fi
 }
 
 install_system_deps() {
@@ -82,14 +122,16 @@ install_app_deps() {
 
 write_env_file() {
   local telegram_bot_token="$1"
-  local deepseek_api_key="$2"
-  local gemini_api_key="$3"
-  local litellm_master_key="$4"
-  local korvin_api_key="$5"
+  local korvin_chat_id="$2"
+  local deepseek_api_key="$3"
+  local gemini_api_key="$4"
+  local litellm_master_key="$5"
+  local korvin_api_key="$6"
 
   umask 077
   cat > "${ENV_FILE}" <<EOF
 TELEGRAM_BOT_TOKEN=${telegram_bot_token}
+KORVIN_CHAT_ID=${korvin_chat_id}
 DEEPSEEK_API_KEY=${deepseek_api_key}
 GEMINI_API_KEY=${gemini_api_key}
 LITELLM_MASTER_KEY=${litellm_master_key}
@@ -213,18 +255,19 @@ main() {
   require_root
   require_ubuntu_2404
 
-  read_secret "Telegram bot token" TELEGRAM_BOT_TOKEN
-  read_secret "DeepSeek API key" DEEPSEEK_API_KEY
-  read_secret "Gemini API key" GEMINI_API_KEY
-  read_secret "LiteLLM master key" LITELLM_MASTER_KEY
-  read_secret "Korvin dashboard API key" KORVIN_API_KEY
+  read_optional_telegram_token
+  read_optional_chat_id
+  read_secret "DeepSeek API key (required)" DEEPSEEK_API_KEY
+  read_secret "Gemini API key (required)" GEMINI_API_KEY
+  read_secret "LiteLLM master key (required)" LITELLM_MASTER_KEY
+  read_secret "Korvin dashboard API key (required)" KORVIN_API_KEY
 
   install_system_deps
   create_app_user
   clone_repo
   install_app_deps
   install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_DIR}/data"
-  write_env_file "${TELEGRAM_BOT_TOKEN}" "${DEEPSEEK_API_KEY}" "${GEMINI_API_KEY}" "${LITELLM_MASTER_KEY}" "${KORVIN_API_KEY}"
+  write_env_file "${TELEGRAM_BOT_TOKEN}" "${KORVIN_CHAT_ID}" "${DEEPSEEK_API_KEY}" "${GEMINI_API_KEY}" "${LITELLM_MASTER_KEY}" "${KORVIN_API_KEY}"
   write_config_json "${TELEGRAM_BOT_TOKEN}"
   write_litellm_config
   write_systemd_services

@@ -1,0 +1,7 @@
+{
+  "name": "example-echo",
+  "description": "Echoes the user message back with a prefix - example skill",
+  "trigger": "^echo (.+)",
+  "permission": "read-only",
+  "handler": "./handler.js"
+}

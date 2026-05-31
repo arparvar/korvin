@@ -3,6 +3,8 @@
 
 'use strict';
 
+require('../security/log-redact').installLogRedaction();
+
 const express = require('express');
 const systemRouter = require('./routes/system');
 const { sendMessage, resetSession } = require('../openclaw/gateway');

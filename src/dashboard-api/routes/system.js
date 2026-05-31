@@ -6,6 +6,7 @@
 const express = require('express');
 const os = require('os');
 const { execSync } = require('child_process');
+const { getLastRateLimitHeaders } = require('../../openclaw/gateway');
 
 const router = express.Router();
 
@@ -74,6 +75,16 @@ router.get('/', (req, res) => {
     mem_pct: ((usedMem / totalMem) * 100).toFixed(1),
     ...disk,
     ...cpu
+  });
+});
+
+router.get('/rate-limits', (req, res) => {
+  const headers = getLastRateLimitHeaders();
+  const hasData = Object.keys(headers).length > 0;
+  res.json({
+    available: hasData,
+    headers: hasData ? headers : null,
+    note: hasData ? null : 'No LiteLLM requests have been made yet in this session.'
   });
 });
 

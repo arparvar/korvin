@@ -8,6 +8,8 @@ const CHAT_TIMEOUT_PATH = path.join(ROOT, 'data', 'chat_timeout.txt');
 const PREFERENCES_PATH = path.join(ROOT, 'data', 'preferences.json');
 const MEMORY_DB_PATH = path.join(ROOT, 'data', 'memory.db');
 
+let lastRateLimitHeaders = {};
+
 function getActiveModel() {
   try {
     return fs.readFileSync(ACTIVE_MODEL_PATH, 'utf8').trim();
@@ -197,6 +199,13 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
       if (rlRemaining !== null && parseInt(rlRemaining, 10) < 10) {
         console.warn(`[Korvin] WARNING: provider reports only ${rlRemaining} requests remaining in rate limit window.`);
       }
+      const rlSnapshot = {};
+      for (const [k, v] of response.headers.entries()) {
+        if (k.startsWith('x-ratelimit-')) rlSnapshot[k] = v;
+      }
+      if (Object.keys(rlSnapshot).length > 0) {
+        lastRateLimitHeaders = { ...rlSnapshot, captured_at: new Date().toISOString() };
+      }
       clearTimeout(timer);
       break;
     } catch (err) {
@@ -301,6 +310,32 @@ print(json.dumps(messages))
   return JSON.parse(output || '[]');
 }
 
+async function searchMessages(userId, query, limit = 5) {
+  const script = MEMORY_TABLE_SCRIPT + `
+import json
+user_id = str(sys.argv[2])
+query = str(sys.argv[3])
+limit = int(sys.argv[4])
+c.execute("""CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts
+USING fts5(content=messages, content_rowid=id, content, role)""")
+c.execute("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
+rows = c.execute(
+    """SELECT m.role, m.content, m.timestamp
+    FROM messages m
+    INNER JOIN messages_fts fts ON m.id = fts.rowid
+    WHERE messages_fts MATCH ?
+      AND m.chat_id = ?
+    ORDER BY rank
+    LIMIT ?""",
+    (query, user_id, limit)
+).fetchall()
+c.close()
+print(json.dumps([{"role": r[0], "content": r[1], "timestamp": r[2]} for r in rows]))
+`;
+  const output = await runMemoryPython(script, [userId, query, limit]);
+  return JSON.parse(output || '[]');
+}
+
 async function summarizeSession(userId, model) {
   const history = await loadSessionMessages(userId, 20);
   if (history.length < 3) return 'Not enough history to summarize.';
@@ -329,4 +364,8 @@ async function summarizeSession(userId, model) {
   return redactSensitive(data.choices[0].message.content).trim();
 }
 
-module.exports = { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, summarizeSession };
+function getLastRateLimitHeaders() {
+  return lastRateLimitHeaders;
+}
+
+module.exports = { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, getLastRateLimitHeaders };

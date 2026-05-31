@@ -49,7 +49,7 @@ Memory:  SQLite persistent</code></pre>
         <article class="card"><h3>Telegram interface</h3><p>Send text or voice messages. Korvin replies in text or speaks back.</p></article>
         <article class="card"><h3>Voice - Whisper STT</h3><p>Speech-to-text via Whisper tiny.en (~2s on a $5 VPS). Optional TTS can be added when needed.</p></article>
         <article class="card"><h3>Persistent memory</h3><p>Every conversation stored in SQLite. Sliding window keeps the agent alive forever.</p></article>
-        <article class="card"><h3>Model switching</h3><p>Tap a model in the dashboard. No restart. DeepSeek, Gemini, Claude, or local Ollama.</p></article>
+        <article class="card"><h3>Model switching</h3><p>Tap a model in the dashboard. No restart. DeepSeek V4, Gemini Flash, Claude, or any Ollama model.</p></article>
         <article class="card"><h3>5 skills: research, scheduling, drafting, security, inbox</h3><p>Web research, scheduled jobs, structured document drafts, VPS security reporting, and inbox triage are wired through Telegram and dashboard chat.</p></article>
         <article class="card"><h3>Rate limited & OWASP reviewed</h3><p>Per-user rate limiting (20 req/60s). OWASP LLM Top 10 2025 reviewed. Prompt injection blocking. Output secret redaction. Automated smoke test included.</p></article>
       </div>
@@ -58,7 +58,7 @@ Memory:  SQLite persistent</code></pre>
       <div>
         <p class="eyebrow">Dashboard</p>
         <h2>Manage your agent from a browser.</h2>
-        <p>The Korvin dashboard runs on your VPS, protected by Cloudflare Access. Switch models, browse memory, monitor tokens, of and set a kill switch.</p>
+        <p>The Korvin dashboard runs on your VPS, protected by Cloudflare Access. Switch models, browse memory, monitor tokens, and set a kill switch.</p>
         <a class="button secondary" href="https://github.com/nosistech/korvin/blob/main/docs/deployment.md">Deployment guide</a>
       </div>
       <ul class="check-list">
@@ -72,9 +72,13 @@ Memory:  SQLite persistent</code></pre>
     </section>
     <section class="section warning">
       <p class="eyebrow">Honest setup requirements</p>
-      <h2>This requires a VPS and some terminal work.</h2>
-      <p>First setup is technical. You need a Linux VPS, SSH familiarity, a Telegram bot token, and at least one LLM API key. The quickstart walks through every step.</p>
-      <p>Start with API keys (DeepSeek, Gemini, OpenAI). Once running, swap in a local Ollama model with one config line and zero restarts.</p>
+      <h2>One command installs everything.</h2>
+      <p>SSH into any Ubuntu or Debian VPS once. You need a Telegram bot token and a Gemini or DeepSeek API key. The installer sets up all services automatically.</p>
+      <div class="terminal-card" style="max-width:640px;margin:1.5rem 0">
+        <div class="terminal-top"><span></span><span></span><span></span></div>
+        <pre><code>curl -fsSL https://raw.githubusercontent.com/nosistech/korvin/main/install.sh | sudo bash</code></pre>
+      </div>
+      <p>Start with API keys. Once running, swap in any LiteLLM-compatible model — including local Ollama — by editing one config file. No code changes, no rebuilds.</p>
     </section>
     <section class="section">
       <div class="section-heading">

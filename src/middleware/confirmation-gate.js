@@ -25,7 +25,7 @@ const RISK_MAP = {
   help:       'LOW',
 };
 
-const TIMEOUT_MS = 5 * 60 * 1000;
+const TIMEOUT_MS = (parseInt(process.env.KORVIN_APPROVAL_TIMEOUT_SECONDS, 10) || 120) * 1000;
 
 function classifyRisk(action) {
   return RISK_MAP[action.toLowerCase()] || 'MEDIUM';
@@ -45,7 +45,7 @@ function registerPending({ action, args, chatId, userId }) {
     setTimeout(() => {
       if (pendingActions.has(pendingId)) {
         pendingActions.delete(pendingId);
-        reject(new Error(`Action "${action}" [${pendingId}] expired after 5 minutes.`));
+        reject(new Error(`Action "${action}" [${pendingId}] expired after ${process.env.KORVIN_APPROVAL_TIMEOUT_SECONDS || 120} seconds.`));
       }
     }, TIMEOUT_MS);
   });
@@ -82,7 +82,7 @@ function listPending(chatId) {
   return results;
 }
 
-async function confirmationGate({ action, args, chatId, userId, sendMessage, executor }) {
+async function confirmationGate({ action, args, chatId, userId, sendMessage, sendKeyboard, executor }) {
   const risk = classifyRisk(action);
 
   if (risk === 'LOW') {
@@ -106,10 +106,15 @@ async function confirmationGate({ action, args, chatId, userId, sendMessage, exe
     ``,
     `Reply \`/confirm ${pendingId}\` to execute`,
     `Reply \`/cancel ${pendingId}\` to abort`,
-    `Expires in 5 minutes.`,
+    `Expires in ${process.env.KORVIN_APPROVAL_TIMEOUT_SECONDS || 120}s.`,
   ].join('\n');
 
-  await sendMessage(chatId, prompt);
+  if (sendKeyboard) {
+    const keyboard = [[{ text: 'Confirm', callback_data: `confirm:${pendingId}` }, { text: 'Cancel', callback_data: `cancel:${pendingId}` }]];
+    await sendKeyboard(chatId, prompt, keyboard);
+  } else {
+    await sendMessage(chatId, prompt);
+  }
 
   try {
     await promise;

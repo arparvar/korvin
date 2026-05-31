@@ -61,6 +61,16 @@ function registerScan(bot, deps) {
     const userId = String(msg.from.id);
     const target = match[1] ? match[1].trim() : 'system';
 
+    // Read-only dep scan - no confirmation needed
+    if (target === 'deps') {
+      const { depScan } = require('../skills/dep-scan');
+      const report = depScan();
+      const truncated = report.length > 3500 ? report.substring(0, 3500) + '\n...(truncated)' : report;
+      await bot.sendMessage(chatId, `*Dependency Scan*\n\n\`\`\`\n${truncated}\n\`\`\``, { parse_mode: 'Markdown' });
+      if (logActivity) try { logActivity('dep_scan', 'scan deps', 'metadata only'); } catch (_) {}
+      return;
+    }
+
     try {
       await confirmationGate({
         action: 'scan',

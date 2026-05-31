@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const LOG_FILE = path.resolve(__dirname, '../../docs/activity.md');
+const LOG_FILE = path.resolve(__dirname, '../../data/activity.ndjson');
 
 function ensureLogFile() {
   const logDirectory = path.dirname(LOG_FILE);
@@ -11,7 +11,7 @@ function ensureLogFile() {
   }
 
   if (!fs.existsSync(LOG_FILE)) {
-    fs.writeFileSync(LOG_FILE, '# Korvin Activity Log\n\nAuto-generated.\n\n---\n\n', 'utf8');
+    fs.writeFileSync(LOG_FILE, '', 'utf8');
   }
 }
 
@@ -20,26 +20,41 @@ function logActivity(skill, trigger, summary) {
 
   const safeSummary = String(summary || '').substring(0, 150);
   const timestamp = new Date().toISOString();
-  const entry = `### ${timestamp}\n- **Skill:** ${skill}\n- **Trigger:** ${trigger}\n- **Result:** ${safeSummary}...\n\n`;
+  const entry = JSON.stringify({ ts: timestamp, skill, trigger, summary: safeSummary }) + '\n';
 
   fs.appendFileSync(LOG_FILE, entry, 'utf8');
+  if (process.env.KORVIN_NTFY_URL) {
+    fetch(process.env.KORVIN_NTFY_URL, {
+      method: 'POST',
+      headers: { 'X-Title': 'Korvin', 'Content-Type': 'text/plain' },
+      body: `${skill}: ${trigger}`
+    }).catch(() => {});
+  }
 }
 
 function getLogSummary(n = 10) {
   ensureLogFile();
 
   const content = fs.readFileSync(LOG_FILE, 'utf8');
-  const entries = content.split('### ').filter((entry) => entry.includes('Skill:'));
+  const entries = content
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
 
   if (entries.length === 0) {
     return 'No activity logged yet.';
   }
 
   return entries.slice(-n).reverse().map((entry) => {
-    const lines = entry.trim().split('\n');
-    const timestamp = lines[0].trim().substring(0, 16).replace('T', ' ');
-    const skill = (lines.find((line) => line.includes('Skill:')) || '').replace('- **Skill:**', '').trim();
-    const trigger = (lines.find((line) => line.includes('Trigger:')) || '').replace('- **Trigger:**', '').trim();
+    const { ts, skill, trigger } = entry;
+    const timestamp = ts.substring(0, 16).replace('T', ' ');
 
     return `- [${timestamp}] ${skill} - "${trigger}"`;
   }).join('\n');

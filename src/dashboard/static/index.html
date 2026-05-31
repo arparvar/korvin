@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/static/manifest.json">
 <title>Korvin Dashboard</title>
 <style>
   :root {
@@ -1032,6 +1033,7 @@ loadTokenUsage();
 loadContextWindow('cw-home');
 loadVoiceStatus();
 autoRefreshTimer = setInterval(() => { loadSystem(); loadHealth(); loadTokenUsage(); loadContextWindow('cw-home'); }, 10000);
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/sw.js'); }
 </script>
 </body>
 </html>

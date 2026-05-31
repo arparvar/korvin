@@ -5,7 +5,7 @@
 
 const TelegramBot = require('node-telegram-bot-api');
 const { exec, execSync } = require('child_process');
-const { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences } = require('./gateway');
+const { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, summarizeSession } = require('./gateway');
 const { researchTopic } = require('../skills/research');
 const fs = require('fs');
 const path = require('path');
@@ -32,8 +32,22 @@ const { registerScan } = require('../commands/scan');
 const { startDashboard } = require('../dashboard-api/server');
 
 // ── Bot init ──────────────────────────────────────────────────────────────────
-const BOT_TOKEN = require('../../config.json').telegramToken;
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+let configuredTelegramToken = '';
+try {
+  configuredTelegramToken = require('../../config.json').telegramToken || '';
+} catch (_) {}
+
+const envHasTelegramToken = Object.prototype.hasOwnProperty.call(process.env, 'TELEGRAM_BOT_TOKEN');
+const BOT_TOKEN = (envHasTelegramToken ? process.env.TELEGRAM_BOT_TOKEN : configuredTelegramToken || '').trim();
+const telegramEnabled = BOT_TOKEN !== '';
+const disabledBot = {
+  onText: () => {},
+  on: () => {},
+  sendMessage: async () => {},
+  sendVoice: async () => {},
+  getFile: async () => { throw new Error('Telegram bot disabled'); }
+};
+const bot = telegramEnabled ? new TelegramBot(BOT_TOKEN, { polling: true }) : disabledBot;
 
 const VOICE_DIR = '/tmp/korvin_voice';
 if (!fs.existsSync(VOICE_DIR)) fs.mkdirSync(VOICE_DIR);
@@ -332,6 +346,21 @@ bot.onText(/\/rule(?: (.+))?/, async (msg, match) => {
   }
 });
 
+bot.onText(/^\/(new|reset)$/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from && msg.from.id ? msg.from.id : chatId;
+  const count = await resetSession(userId);
+  await bot.sendMessage(chatId, `Session cleared. ${count} messages removed. Starting fresh.`);
+});
+
+bot.onText(/^\/summarize$/, async (msg) => {
+  const chatId = msg.chat.id;
+  const userId = msg.from && msg.from.id ? msg.from.id : chatId;
+  const activeModel = getActiveModel();
+  const summary = await summarizeSession(userId, activeModel);
+  await bot.sendMessage(chatId, `*Session summary:*\n${summary}`, { parse_mode: 'Markdown' });
+});
+
 // ── Text Handler ──────────────────────────────────────────────────────────────
 
 bot.on('message', async (msg) => {
@@ -485,12 +514,17 @@ bot.on('voice', async (msg) => {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
 (async () => {
-  await startDashboard();
-  activateStoredCronJobs();
-  activateSecurityMonitor();
-  console.log('Korvin bot started. /help for commands.');
+  if (!telegramEnabled) {
+    console.log('[Korvin] TELEGRAM_BOT_TOKEN not set - running in dashboard-only mode. Telegram bot disabled.');
+    await startDashboard();
+    console.log('[Korvin] Dashboard ready. Telegram disabled.');
+  } else {
+    await startDashboard();
+    activateStoredCronJobs();
+    activateSecurityMonitor();
+    console.log('Korvin bot started. /help for commands.');
 
-  setTimeout(() => {
+    setTimeout(() => {
     try {
       execSync(
         `cd ${ROOT} && venv/bin/python3 -c "
@@ -505,5 +539,6 @@ print('ok')
     } catch (_) {
       console.log('Whisper pre‑warm skipped (will load on first voice message).');
     }
-  }, 3000);
+    }, 3000);
+  }
 })();

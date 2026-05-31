@@ -87,6 +87,28 @@ def root():
 def status():
     return {"korvin": "online", "version": "0.1.1", "memory": "sqlite"}
 
+@app.get("/api/voice/status")
+def voice_status():
+    provider = os.environ.get("KORVIN_TTS_PROVIDER", "kokoro")
+    voice = os.environ.get("KORVIN_TTS_VOICE", "M1" if provider == "supertonic" else "bm_lewis")
+    if voice == "default":
+        voice = "M1"
+    model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3" if provider == "supertonic" else "kokoro")
+    stt_model = os.environ.get("KORVIN_STT_MODEL", "tiny.en")
+    if provider == "supertonic":
+        tts_label = f"Supertonic {model} ({voice})"
+    else:
+        tts_label = f"Kokoro {voice}"
+    return {
+        "stt": "whisper",
+        "stt_model": stt_model,
+        "tts_provider": provider,
+        "tts_voice": voice,
+        "tts_model": model,
+        "tts_label": tts_label,
+        "stt_label": f"Whisper {stt_model}"
+    }
+
 @app.get("/api/health")
 def health_check():
     health = {

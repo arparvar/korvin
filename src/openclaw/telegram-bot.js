@@ -31,6 +31,15 @@ const { registerScan } = require('../commands/scan');
 // ── Dashboard (Phase B) ───────────────────────────────────────────────────────
 const { startDashboard } = require('../dashboard-api/server');
 
+function isAllowed(msg) {
+  const allowedUsers = (process.env.KORVIN_ALLOWED_USERS || '')
+    .split(',')
+    .map(id => id.trim())
+    .filter(Boolean);
+  if (allowedUsers.length === 0) return true;
+  return allowedUsers.includes(String(msg.from && msg.from.id));
+}
+
 // ── Bot init ──────────────────────────────────────────────────────────────────
 let configuredTelegramToken = '';
 try {
@@ -364,6 +373,7 @@ bot.onText(/^\/summarize$/, async (msg) => {
 // ── Text Handler ──────────────────────────────────────────────────────────────
 
 bot.on('message', async (msg) => {
+  if (!isAllowed(msg)) return bot.sendMessage(msg.chat.id, 'Access denied.');
   const chatId = msg.chat.id;
   const text = msg.text;
   if (!text || msg.voice) return;
@@ -454,6 +464,7 @@ bot.on('message', async (msg) => {
 // ── Voice Handler ─────────────────────────────────────────────────────────────
 
 bot.on('voice', async (msg) => {
+  if (!isAllowed(msg)) return bot.sendMessage(msg.chat.id, 'Access denied.');
   const chatId = msg.chat.id;
   const oggPath = path.join(VOICE_DIR, `${msg.voice.file_id}.ogg`);
   const wavPath = path.join(VOICE_DIR, `${msg.voice.file_id}.wav`);

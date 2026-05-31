@@ -18,6 +18,7 @@ const cron = require('node-cron');
 const { sanitizeInput } = require('../middleware/sanitizer');
 const { confirmationGate, confirmAction, cancelAction, listPending } = require('../middleware/confirmation-gate');
 const { defend } = require('../security/defender');
+const { checkRateLimit } = require('../security/rate-limiter');
 
 // ── Skills ────────────────────────────────────────────────────────────────────
 const { logActivity, getLogSummary } = require('../skills/activity-log');
@@ -337,6 +338,12 @@ bot.on('message', async (msg) => {
   const chatId = msg.chat.id;
   const text = msg.text;
   if (!text || msg.voice) return;
+
+  const rateLimit = checkRateLimit(msg.from && msg.from.id ? msg.from.id : chatId);
+  if (!rateLimit.allowed) {
+    await bot.sendMessage(chatId, `Too many requests. Please wait ${rateLimit.retryAfterSeconds} seconds.`);
+    return;
+  }
 
   if (text.toLowerCase().startsWith('/brief')) {
     briefMode = !briefMode;

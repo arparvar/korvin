@@ -5,6 +5,8 @@
 
 const express = require('express');
 const systemRouter = require('./routes/system');
+const { sendMessage } = require('../openclaw/gateway');
+const { checkRateLimit } = require('../security/rate-limiter');
 
 const app = express();
 const PORT = 3000;
@@ -23,6 +25,29 @@ app.use(express.json());
 
 // Routes
 app.use('/api/system', systemRouter);
+
+app.post('/chat', async (req, res) => {
+  const userId = req.ip || 'dashboard';
+  const rateLimit = checkRateLimit(userId);
+  if (!rateLimit.allowed) {
+    return res.status(429).json({
+      error: 'Too many requests',
+      retryAfterSeconds: rateLimit.retryAfterSeconds
+    });
+  }
+
+  const message = req.body && req.body.message;
+  if (typeof message !== 'string' || message.trim() === '') {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  try {
+    const reply = await sendMessage(message, userId);
+    return res.json({ reply });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to process chat request' });
+  }
+});
 
 // Health ping
 app.get('/ping', (req, res) => res.json({ status: 'ok', service: 'korvin-dashboard' }));

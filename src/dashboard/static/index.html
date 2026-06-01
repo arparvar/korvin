@@ -200,9 +200,11 @@
     <span class="skill-chip">🔍 web-researcher</span>
     <span class="skill-chip">⚙️ task-automator</span>
     <span class="skill-chip">📝 document-drafter</span>
-    <span class="skill-chip">📬 inbox-summarizer</span>
     <span class="skill-chip">🛡️ security-monitor</span>
-    <p style="margin-top:14px;font-size:0.83rem;color:var(--text3);font-style:italic">Skills auto-generated from experience will appear here.</p>
+    <span class="skill-chip">📺 youtube-transcriber</span>
+    <span class="skill-chip">🔒 dep-scan</span>
+    <span class="skill-chip" style="opacity:0.5">📬 inbox-summarizer (pending)</span>
+    <p style="margin-top:14px;font-size:0.83rem;color:var(--text3);font-style:italic">Use <code>/skills list</code> in Telegram for the full command reference.</p>
   </div>
 </div>
 
@@ -339,6 +341,25 @@
     <h3>Voice</h3>
     <div class="status-row"><div class="dot green"></div>STT: <span id="settings-stt-label">Whisper base model</span> — active</div>
     <div class="status-row"><div class="dot green"></div>TTS: <span id="settings-tts-label">Kokoro bm_lewis</span> — active</div>
+    <div style="margin-top:10px">
+      <button id="tts-toggle-btn" class="refresh-btn" onclick="switchTtsProvider()">Switch TTS provider</button>
+    </div>
+    <div style="margin-top:14px">
+      <label style="font-size:0.82rem;color:var(--text2)">STT Model</label>
+      <div class="status-row" style="margin-top:6px;gap:8px">
+        <select id="stt-model-select" class="field-input" style="width:auto;padding:4px 8px" onchange="document.getElementById('stt-model-warning').style.display=this.value==='distil-large-v3'?'block':'none'">
+          <option value="tiny.en">tiny.en ? fastest, ~95 MB RAM (default)</option>
+          <option value="base.en">base.en ? better accuracy, ~350 MB RAM</option>
+          <option value="small.en">small.en ? good quality, ~1 GB RAM</option>
+          <option value="distil-large-v3">distil-large-v3 ? highest quality, 4 GB+ RAM required</option>
+        </select>
+        <button class="apply-btn" onclick="saveSttModel()" style="margin:0">Save</button>
+      </div>
+      <div id="stt-model-warning" style="display:none;margin-top:8px;padding:8px;background:#5a1a1a;border-radius:6px;font-size:0.78rem;color:#ff9999">
+        &#9888; <strong>Hardware warning:</strong> distil-large-v3 requires 4 GB+ RAM. On a 2 GB VPS this will cause out-of-memory crashes or transcription timeouts lasting minutes. Only use this model after upgrading your VPS to a 4 GB+ plan.
+      </div>
+      <div class="feedback" id="stt-model-feedback"></div>
+    </div>
     <div class="status-row"><div class="dot yellow"></div>Wake word: "Hey Korvin" via Porcupine — pending</div>
   </div>
 </div>
@@ -452,6 +473,44 @@ function toggleTheme() {
   localStorage.setItem('korvin-theme', isLight ? 'light' : 'dark');
   applyTheme(isLight);
 }
+
+async function saveSttModel() {
+  const sel = document.getElementById('stt-model-select');
+  const fb = document.getElementById('stt-model-feedback');
+  if (!sel) return;
+  try {
+    const r = await fetch('/api/settings/stt-model', {
+      method: 'POST',
+      headers: { ...AUTH, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: sel.value })
+    });
+    if (r.ok) {
+      fb.textContent = 'Saved. New model loads on next voice request.';
+      fb.className = 'feedback ok';
+      await loadVoiceStatus();
+    } else {
+      fb.textContent = 'Error saving model.';
+      fb.className = 'feedback err';
+    }
+  } catch(e) {
+    fb.textContent = 'Error: ' + e.message;
+    fb.className = 'feedback err';
+  }
+}
+
+async function switchTtsProvider() {
+  const btn = document.getElementById('tts-toggle-btn');
+  const current = (btn && btn.dataset.current) || 'supertonic';
+  const next = current === 'supertonic' ? 'chatterbox' : 'supertonic';
+  try {
+    const r = await fetch('/api/settings/tts-provider', {
+      method: 'POST',
+      headers: { ...AUTH, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: next })
+    });
+    if (r.ok) await loadVoiceStatus();
+  } catch(e) {}
+}
 applyTheme(localStorage.getItem('korvin-theme') === 'light');
 
 // ── Navigation ─────────────────────────────────────────────────────
@@ -535,6 +594,18 @@ async function loadVoiceStatus() {
     if (homeLabel) homeLabel.textContent = (d.stt_label || 'Whisper') + ' + ' + (d.tts_label || 'Kokoro bm_lewis');
     if (sttLabel) sttLabel.textContent = d.stt_label || 'Whisper base model';
     if (ttsLabel) ttsLabel.textContent = d.tts_label || 'Kokoro bm_lewis';
+    const ttsBtn = document.getElementById('tts-toggle-btn');
+    if (ttsBtn) {
+      ttsBtn.dataset.current = d.tts_provider || 'supertonic';
+      const nextLabel = d.tts_provider === 'chatterbox' ? 'Supertonic' : 'Chatterbox';
+      ttsBtn.textContent = 'Switch to ' + nextLabel;
+    }
+    const sttSel = document.getElementById('stt-model-select');
+    const sttWarn = document.getElementById('stt-model-warning');
+    if (sttSel && d.stt_model) {
+      sttSel.value = d.stt_model;
+      if (sttWarn) sttWarn.style.display = d.stt_model === 'distil-large-v3' ? 'block' : 'none';
+    }
   } catch(e) { /* keep defaults */ }
 }
 
@@ -680,10 +751,10 @@ async function loadContextWindow(targetId) {
     if (tag) { tag.textContent = status.toUpperCase(); tag.className = `tag ${status}`; }
     document.getElementById(targetId).innerHTML = `
       <div class="cw-meta">
-        Messages in context: <strong>${d.messages_used}</strong> / ${d.messages_limit}
-        &nbsp;·&nbsp; ~<strong>${d.tokens_estimate}</strong> tokens used
+        Messages in context: <strong>${d.messages_used ?? 0}</strong> / ${d.messages_limit ?? '?'}
+        &nbsp;·&nbsp; ~<strong>${d.tokens_estimate ?? 0}</strong> tokens used
         &nbsp;·&nbsp; <strong>${pct}%</strong> of message limit
-        &nbsp;·&nbsp; <strong>${d.pct_tokens}%</strong> of ${(configMaxTokens/1000).toFixed(0)}k token cap
+        &nbsp;·&nbsp; <strong>${d.pct_tokens ?? 0}%</strong> of ${(configMaxTokens/1000).toFixed(0)}k token cap
       </div>
       <div class="bar-wrap"><div class="bar ${status}" style="width:${Math.min(pct,100)}%"></div></div>
       <div class="bar-label"><span>0%</span><span>60% warn</span><span>80% critical</span><span>100%</span></div>

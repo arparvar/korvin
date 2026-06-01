@@ -1,7 +1,7 @@
 import os, sqlite3, subprocess, re, json, time, tempfile, math
 from datetime import datetime, date
 from pathlib import Path
-from fastapi import FastAPI, Header, HTTPException, Depends, File, UploadFile
+from fastapi import FastAPI, Header, HTTPException, Depends, File, UploadFile, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -10,15 +10,23 @@ from collections import defaultdict
 import requests
 import base64
 try:
-    import whisper as _whisper_lib
+    from faster_whisper import WhisperModel as _FasterWhisperModel
     _WHISPER_AVAILABLE = True
 except ImportError:
-    _whisper_lib = None
+    _FasterWhisperModel = None
     _WHISPER_AVAILABLE = False
+try:
+    from pydub import AudioSegment as _pydub_audio
+    _PYDUB_AVAILABLE = True
+except ImportError:
+    _pydub_audio = None
+    _PYDUB_AVAILABLE = False
 
 BASE_DIR = Path(__file__).parent.parent.parent
 APP_DIR = str(BASE_DIR)
 DATA_DIR = BASE_DIR / "data"
+TTS_PROVIDER_PATH = DATA_DIR / "tts_provider.txt"
+STT_MODEL_PATH = DATA_DIR / "stt_model.txt"
 
 app = FastAPI(title="Korvin Dashboard")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "src" / "dashboard" / "static")), name="static")
@@ -27,11 +35,16 @@ DB_PATH = str(DATA_DIR / "memory.db")
 KILLSWITCH_FLAG = str(DATA_DIR / "killswitch.flag")
 CHAT_TIMEOUT_PATH = str(DATA_DIR / "chat_timeout.txt")
 TOKEN_WARNING_PATH = str(DATA_DIR / "token_warning_threshold.txt")
+KORVIN_DASHBOARD_TOKEN = os.environ.get("KORVIN_DASHBOARD_TOKEN", "").strip()
 
-def require_key(x_korvin_key: Optional[str] = Header(default=None)):
+def require_key(request: Request, x_korvin_key: Optional[str] = Header(default=None)):
     api_key = os.environ.get("KORVIN_API_KEY", "")
     if not api_key or x_korvin_key != api_key:
         raise HTTPException(status_code=403, detail="Forbidden")
+    if KORVIN_DASHBOARD_TOKEN:
+        x_korvin_token = request.headers.get("x-korvin-token")
+        if x_korvin_token != KORVIN_DASHBOARD_TOKEN:
+            raise HTTPException(status_code=403, detail="Forbidden")
 
 LOG_SANITIZE = re.compile(
     r'(Traceback \(most recent call last\)|File "/.*?"|^\s+.*\.py.*$)',
@@ -72,13 +85,31 @@ def _write_token_warning(tokens: int):
 # ── Whisper model lazy‑load ────────────────────────────────────────
 _whisper_model = None
 
+def _get_stt_model_name() -> str:
+    try:
+        m = STT_MODEL_PATH.read_text().strip()
+        if m:
+            return m
+    except Exception:
+        pass
+    return os.environ.get("KORVIN_STT_MODEL", "tiny.en")
+
 def _get_whisper_model():
     global _whisper_model
     if not _WHISPER_AVAILABLE:
         return None
     if _whisper_model is None:
-        _whisper_model = _whisper_lib.load_model("tiny.en")
+        _whisper_model = _FasterWhisperModel(_get_stt_model_name(), device="cpu", compute_type="int8")
     return _whisper_model
+
+def _check_voice_activity(audio_path: str, min_dBFS: float = -40.0) -> bool:
+    if not _PYDUB_AVAILABLE:
+        return True
+    try:
+        audio = _pydub_audio.from_file(audio_path)
+        return audio.dBFS > min_dBFS
+    except Exception:
+        return True
 
 # ── Public endpoints ────────────────────────────────────────────────
 
@@ -94,20 +125,34 @@ def root():
 def status():
     return {"korvin": "online", "version": "0.1.1", "memory": "sqlite"}
 
+def _get_tts_provider() -> str:
+    try:
+        p = TTS_PROVIDER_PATH.read_text().strip()
+        if p in ('supertonic', 'chatterbox'):
+            return p
+    except Exception:
+        pass
+    return os.environ.get("KORVIN_TTS_PROVIDER", "supertonic")
+
 @app.get("/api/voice/status")
 def voice_status():
     voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
     if voice == "default":
         voice = "M1"
     model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3")
-    stt_model = os.environ.get("KORVIN_STT_MODEL", "tiny.en")
+    stt_model = _get_stt_model_name()
+    tts_provider = _get_tts_provider()
+    if tts_provider == "chatterbox":
+        tts_label = "Chatterbox Turbo"
+    else:
+        tts_label = f"Supertonic {model} ({voice})"
     return {
         "stt": "whisper",
         "stt_model": stt_model,
-        "tts_provider": "supertonic",
+        "tts_provider": tts_provider,
         "tts_voice": voice,
         "tts_model": model,
-        "tts_label": f"Supertonic {model} ({voice})",
+        "tts_label": tts_label,
         "stt_label": f"Whisper {stt_model}"
     }
 
@@ -122,6 +167,7 @@ def health_check():
         "last_activity": None,
         "backup_last": None,
         "backup_hours": None,
+        "dashboard_token_required": bool(KORVIN_DASHBOARD_TOKEN),
     }
     try:
         r = subprocess.run(["systemctl", "is-active", "korvin"], capture_output=True, text=True, timeout=3)
@@ -477,7 +523,9 @@ def chat(body: ChatRequest):
             {"error": "Too many requests", "retryAfterSeconds": retry_after},
             status_code=429
         )
-    message_text = body.message
+    message_text = body.message.strip()
+    if not message_text:
+        return JSONResponse({"reply": "Please type a message."})
     if re.search(r'ignore\s+(all\s+)?(previous|prior|above)\s+instructions?|you\s+are\s+now|jailbreak|system\s*:|(?:reveal|show|print|dump)\s+(?:your\s+)?system\s+prompt', message_text, re.IGNORECASE):
         raise HTTPException(status_code=400, detail="Input blocked: prompt injection pattern detected.")
 
@@ -667,7 +715,7 @@ def save_token_rates(body: TokenRatesRequest):
 @app.post("/api/stt", dependencies=[Depends(require_key)])
 async def transcribe_audio(file: UploadFile = File(...)):
     if not _WHISPER_AVAILABLE:
-        raise HTTPException(status_code=503, detail="Voice features not installed. Run: pip install openai-whisper")
+        raise HTTPException(status_code=503, detail="Voice features not installed. Run: pip install faster-whisper")
     MAX_SIZE = 10 * 1024 * 1024  # 10 MB
     content = await file.read()
     if len(content) > MAX_SIZE:
@@ -681,9 +729,11 @@ async def transcribe_audio(file: UploadFile = File(...)):
     try:
         tmp.write(content)
         tmp.close()
+        if not _check_voice_activity(tmp.name):
+            return {"text": ""}
         model = _get_whisper_model()
-        result = model.transcribe(tmp.name, fp16=False)
-        text = result["text"].strip()
+        segments, _ = model.transcribe(tmp.name, language="en", beam_size=1, vad_filter=False)
+        text = " ".join(s.text for s in segments).strip()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
     finally:
@@ -693,11 +743,37 @@ async def transcribe_audio(file: UploadFile = File(...)):
             pass
     return {"text": text}
 
+class TtsProviderRequest(BaseModel):
+    provider: str
+
+@app.post("/api/settings/tts-provider", dependencies=[Depends(require_key)])
+def set_tts_provider(body: TtsProviderRequest):
+    if body.provider not in ('supertonic', 'chatterbox'):
+        raise HTTPException(status_code=400, detail="provider must be 'supertonic' or 'chatterbox'")
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    TTS_PROVIDER_PATH.write_text(body.provider)
+    return {"provider": body.provider, "ok": True}
+
+_STT_MODEL_ALLOWLIST = {"tiny.en", "base.en", "small.en", "distil-large-v3"}
+
+class SttModelRequest(BaseModel):
+    model: str
+
+@app.post("/api/settings/stt-model", dependencies=[Depends(require_key)])
+def set_stt_model(body: SttModelRequest):
+    global _whisper_model
+    if body.model not in _STT_MODEL_ALLOWLIST:
+        raise HTTPException(status_code=400, detail=f"model must be one of: {', '.join(sorted(_STT_MODEL_ALLOWLIST))}")
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    STT_MODEL_PATH.write_text(body.model)
+    _whisper_model = None
+    return {"model": body.model, "ok": True}
+
 @app.post("/api/voice/chat", dependencies=[Depends(require_key)])
 async def voice_chat(file: UploadFile = File(...)):
     """Accept audio file, STT → LLM → TTS, return transcript + reply + audio."""
     if not _WHISPER_AVAILABLE:
-        raise HTTPException(status_code=503, detail="Voice features not installed. Run: pip install openai-whisper")
+        raise HTTPException(status_code=503, detail="Voice features not installed. Run: pip install faster-whisper")
     MAX_SIZE = 10 * 1024 * 1024
     content = await file.read()
     if len(content) > MAX_SIZE:
@@ -718,9 +794,11 @@ async def voice_chat(file: UploadFile = File(...)):
     try:
         tmp.write(content)
         tmp.close()
+        if not _check_voice_activity(tmp.name):
+            return JSONResponse({"error": "No speech detected"}, status_code=422)
         model = _get_whisper_model()
-        result = model.transcribe(tmp.name, fp16=False, language="en")
-        transcript = result["text"].strip()
+        segments, _ = model.transcribe(tmp.name, language="en", beam_size=1, vad_filter=False)
+        transcript = " ".join(s.text for s in segments).strip()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
     finally:
@@ -799,27 +877,42 @@ async def voice_chat(file: UploadFile = File(...)):
     except Exception:
         pass
 
-    # TTS ??? Supertonic only
+    # TTS
     audio_b64 = None
     audio_fmt = os.environ.get("KORVIN_TTS_FORMAT", "wav")
-    tts_url = os.environ.get("KORVIN_TTS_URL", "http://127.0.0.1:7788/v1/audio/speech")
-    tts_voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
-    if tts_voice == "default":
-        tts_voice = "M1"
-    tts_model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3")
     import re as _re
     reply_clean = _re.sub(r'\*\*(.*?)\*\*', r'\1', reply)
     reply_clean = _re.sub(r'\*(.*?)\*', r'\1', reply_clean)
     reply_clean = _re.sub(r'`(.*?)`', r'\1', reply_clean)
-    try:
-        tts_resp = requests.post(
-            tts_url,
-            json={"model": tts_model, "input": reply_clean, "voice": tts_voice, "response_format": audio_fmt},
-            timeout=30
-        )
-        if tts_resp.ok:
-            audio_b64 = base64.b64encode(tts_resp.content).decode()
-    except Exception:
-        pass
+    tts_provider = _get_tts_provider()
+    if tts_provider == "chatterbox":
+        chatterbox_url = os.environ.get("KORVIN_CHATTERBOX_URL", "http://127.0.0.1:7789")
+        try:
+            tts_resp = requests.post(
+                f"{chatterbox_url}/generate",
+                json={"text": reply_clean, "exaggeration": 0.5, "cfg_weight": 0.5},
+                timeout=60
+            )
+            if tts_resp.ok:
+                audio_b64 = base64.b64encode(tts_resp.content).decode()
+                audio_fmt = "wav"
+        except Exception:
+            pass
+    else:
+        tts_url = os.environ.get("KORVIN_TTS_URL", "http://127.0.0.1:7788/v1/audio/speech")
+        tts_voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
+        if tts_voice == "default":
+            tts_voice = "M1"
+        tts_model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3")
+        try:
+            tts_resp = requests.post(
+                tts_url,
+                json={"model": tts_model, "input": reply_clean, "voice": tts_voice, "response_format": audio_fmt},
+                timeout=30
+            )
+            if tts_resp.ok:
+                audio_b64 = base64.b64encode(tts_resp.content).decode()
+        except Exception:
+            pass
 
     return JSONResponse({"transcript": transcript, "reply": reply, "audio_base64": audio_b64, "audio_format": audio_fmt})

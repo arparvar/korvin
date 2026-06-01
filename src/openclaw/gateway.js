@@ -8,6 +8,17 @@ const CHAT_TIMEOUT_PATH = path.join(ROOT, 'data', 'chat_timeout.txt');
 const PREFERENCES_PATH = path.join(ROOT, 'data', 'preferences.json');
 const MEMORY_DB_PATH = path.join(ROOT, 'data', 'memory.db');
 
+const AUDIT_LOG_PATH = path.join(ROOT, 'data', 'audit.ndjson');
+
+function appendAuditLog(event, fields = {}) {
+  try {
+    const obj = { ts: new Date().toISOString(), event, ...fields };
+    fs.appendFileSync(AUDIT_LOG_PATH, JSON.stringify(obj) + '\n');
+  } catch (_) {
+    // silently ignore write errors
+  }
+}
+
 let lastRateLimitHeaders = {};
 
 function getActiveModel() {
@@ -77,14 +88,56 @@ function clearPreferences() {
   savePreferences(userPreferences);
 }
 
-const API_KEY = process.env.LITELLM_MASTER_KEY;
-if (!API_KEY) throw new Error('LITELLM_MASTER_KEY not set in /etc/korvin.env');
+let _API_KEY = process.env.LITELLM_MASTER_KEY || null;
+const _VAULT_URL = process.env.KORVIN_VAULT_URL || null;
+const _VAULT_TOKEN = process.env.KORVIN_VAULT_TOKEN || null;
+
+if (!_API_KEY && (!_VAULT_URL || !_VAULT_TOKEN)) {
+  console.warn('[Korvin] WARNING: LITELLM_MASTER_KEY not set and no vault configured. LLM calls will fail.');
+}
+
+async function getApiKey() {
+  if (_API_KEY) return _API_KEY;
+  if (_VAULT_URL && _VAULT_TOKEN) {
+    try {
+      const res = await fetch(`${_VAULT_URL}/secret/LITELLM_MASTER_KEY`, {
+        headers: { 'x-vault-token': _VAULT_TOKEN },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        _API_KEY = data.value;
+        return _API_KEY;
+      }
+    } catch (_) {}
+  }
+  throw new Error('LITELLM_MASTER_KEY not set and vault unavailable');
+}
 
 const { defend } = require('../security/defender');
 const { sanitize: inputSanitize, redactSensitive } = require('../middleware/sanitizer');
 const { execSync, execFile } = require('child_process');
 const { promisify } = require('util');
 const { dispatchSkill } = require('../skills/dispatcher');
+
+let _yamlRules = { blocked: [], suspicious: [] };
+(function _loadSecurityRules() {
+  try {
+    const yaml = require('js-yaml');
+    const raw = fs.readFileSync(path.join(ROOT, 'data', 'security_rules.yaml'), 'utf8');
+    _yamlRules = yaml.load(raw) || { blocked: [], suspicious: [] };
+  } catch (_) {}
+})();
+
+function _checkYamlRules(text) {
+  const lower = text.toLowerCase();
+  for (const p of (_yamlRules.blocked || [])) {
+    if (lower.includes(p.toLowerCase())) return 'blocked';
+  }
+  for (const p of (_yamlRules.suspicious || [])) {
+    if (lower.includes(p.toLowerCase())) return 'suspicious';
+  }
+  return 'clean';
+}
 
 const execFileAsync = promisify(execFile);
 
@@ -147,12 +200,24 @@ function trackTokenUsage(model, tokens) {
 
 async function sendMessage(userMessage, chatId = 'default', preferences = []) {
   const check = inputSanitize(userMessage);
-  if (!check.safe) throw new Error(`Input blocked: ${check.reason}`);
+  if (!check.safe) {
+    appendAuditLog('input_blocked', { reason: check.reason, chat_id: chatId });
+    throw new Error(`Input blocked: ${check.reason}`);
+  }
+  const yamlLevel = _checkYamlRules(check.value);
+  if (yamlLevel === 'blocked') {
+    appendAuditLog('injection_blocked', { chat_id: chatId, source: 'yaml_rules' });
+    throw new Error('Input blocked: custom rule match.');
+  }
   const defended = defend(check.value);
-  if (defended.blocked) throw new Error('Input blocked: prompt injection pattern detected.');
+  if (defended.blocked) {
+    appendAuditLog('injection_blocked', { chat_id: chatId });
+    throw new Error('Input blocked: prompt injection pattern detected.');
+  }
   const safeMessage = redactSensitive(defended.text);
   const skillResult = await dispatchSkill(safeMessage, chatId);
   if (skillResult !== null) {
+    appendAuditLog('skill_dispatched', { chat_id: chatId });
     saveMessage(chatId, 'user', safeMessage);
     saveMessage(chatId, 'assistant', skillResult);
     return skillResult;
@@ -191,7 +256,7 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
     try {
       response = await fetch(LITELLM_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getApiKey()}` },
         body: JSON.stringify({ model: getActiveModel(), messages, temperature: 0.7, max_tokens: 2048, stream: false }),
         signal: controller.signal
       });
@@ -216,7 +281,7 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
         } else {
           throw new Error(`LiteLLM timed out after ${readChatTimeout()} seconds`);
         }
-      } else if (attempt === 0 && err.code === 'ECONNREFUSED') {
+      } else if (attempt === 0 && (err.code === 'ECONNREFUSED' || err.cause?.code === 'ECONNREFUSED')) {
         await new Promise(r => setTimeout(r, 3000));
       } else {
         throw err;
@@ -226,6 +291,7 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
   if (!response.ok) throw new Error(`LiteLLM error: ${response.status} ${response.statusText}`);
   const data = await response.json();
   const reply = redactSensitive(data.choices[0].message.content);
+  appendAuditLog('llm_response', { chat_id: chatId, model: getActiveModel(), tokens: data.usage?.total_tokens ?? 0 });
 
   const used = (data.usage && data.usage.total_tokens) || 0;
   const threshold = readTokenWarningThreshold();
@@ -346,7 +412,7 @@ async function summarizeSession(userId, model) {
 
   const response = await fetch(LITELLM_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEY}` },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getApiKey()}` },
     body: JSON.stringify({
       model: model || getActiveModel(),
       messages: [
@@ -368,4 +434,4 @@ function getLastRateLimitHeaders() {
   return lastRateLimitHeaders;
 }
 
-module.exports = { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, getLastRateLimitHeaders };
+module.exports = { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, getLastRateLimitHeaders, appendAuditLog, getApiKey };

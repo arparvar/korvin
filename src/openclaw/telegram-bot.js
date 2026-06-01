@@ -85,11 +85,12 @@ function downloadFile(url, dest) {
 function transcribe(audioPath) {
   return execSync(
     `cd ${ROOT} && venv/bin/python3 -c "
-import warnings, whisper
+import warnings
 warnings.filterwarnings('ignore')
-m = whisper.load_model('tiny.en')
-r = m.transcribe('${audioPath}', fp16=False)
-print(r['text'].strip())
+from faster_whisper import WhisperModel
+m = WhisperModel('tiny.en', device='cpu', compute_type='int8')
+segments, _ = m.transcribe('${audioPath}', language='en', beam_size=1, vad_filter=False)
+print(' '.join(s.text for s in segments).strip())
 "`,
     { encoding: 'utf8', stderr: 'pipe' }
   ).trim();
@@ -605,9 +606,10 @@ bot.on('voice', async (msg) => {
     try {
       execSync(
         `cd ${ROOT} && venv/bin/python3 -c "
-import warnings, whisper
+import warnings
 warnings.filterwarnings('ignore')
-whisper.load_model('tiny.en')
+from faster_whisper import WhisperModel
+WhisperModel('tiny.en', device='cpu', compute_type='int8')
 print('ok')
 "`,
         { encoding: 'utf8', timeout: 60000 }

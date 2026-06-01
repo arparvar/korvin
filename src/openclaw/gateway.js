@@ -19,6 +19,12 @@ function readContextFile(p) {
 }
 
 function appendMemory(text) {
+  let content;
+  try { content = fs.readFileSync(MEMORY_PATH, 'utf8'); } catch (_) { content = ''; }
+  const today = new Date().toISOString().split('T')[0];
+  if (!content.includes('## ' + today)) {
+    fs.appendFileSync(MEMORY_PATH, '\n\n## ' + today, 'utf8');
+  }
   fs.appendFileSync(MEMORY_PATH, '\n- ' + String(text).trim(), 'utf8');
 }
 

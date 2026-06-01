@@ -61,6 +61,7 @@ const disabledBot = {
 const bot = telegramEnabled ? new TelegramBot(BOT_TOKEN, { polling: true }) : disabledBot;
 
 const VOICE_DIR = '/tmp/korvin_voice';
+const GOAL_CHAT_PATH = path.join(ROOT, 'data', 'goal_chat.txt');
 if (!fs.existsSync(VOICE_DIR)) fs.mkdirSync(VOICE_DIR);
 
 // ── Grill Mode state ──────────────────────────────────────────────────────────
@@ -142,13 +143,18 @@ function formatError(action, error) {
   return `Couldn't ${action} because ${reason}.`;
 }
 
+function isNoise(text) {
+  const s = String(text || '').trim();
+  return s.length < 15 || /^(sorry|i (can't|don't|cannot)|nothing to report|no results)/i.test(s);
+}
+
 function activateCronJob(job) {
   if (!job || !job.id || !job.cronExpr || !job.action || scheduledCronTasks.has(job.id)) return;
   if (!cron.validate(job.cronExpr)) return;
   const task = cron.schedule(job.cronExpr, async () => {
     try {
       const result = await sendMessage(job.action, 'cron-' + job.id);
-      if (job.chatId && job.chatId !== 'default') {
+      if (job.chatId && job.chatId !== 'default' && !isNoise(result)) {
         await bot.sendMessage(job.chatId, result);
       }
     } catch (err) {
@@ -477,6 +483,7 @@ bot.onText(/^\/goal(.*)/, async (msg, match) => {
     return;
   }
   setGoal(arg);
+  try { fs.writeFileSync(GOAL_CHAT_PATH, String(chatId), 'utf8'); } catch (_) {}
   await bot.sendMessage(chatId, 'Goal set: ' + arg);
 });
 
@@ -689,6 +696,35 @@ bot.on('voice', async (msg) => {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
+function activateDailyDigest() {
+  cron.schedule('0 23 * * *', async () => {
+    try {
+      if (!fs.existsSync(SECURITY_CHAT_PATH)) return;
+      const chatId = fs.readFileSync(SECURITY_CHAT_PATH, 'utf8').trim();
+      if (!chatId) return;
+      const digest = await summarizeSession(chatId, getActiveModel());
+      if (!digest) return;
+      appendMemory('Daily digest: ' + digest.slice(0, 200));
+      await bot.sendMessage(chatId, 'Daily digest:\n' + digest);
+    } catch (err) {
+      console.error('Daily digest error:', err.message);
+    }
+  });
+}
+
+function activateGoalHeartbeat() {
+  setInterval(async () => {
+    try {
+      const goal = getGoal();
+      if (!goal) return;
+      if (!fs.existsSync(GOAL_CHAT_PATH)) return;
+      const chatId = fs.readFileSync(GOAL_CHAT_PATH, 'utf8').trim();
+      if (!chatId) return;
+      await bot.sendMessage(chatId, 'Goal check-in: ' + goal);
+    } catch (_) {}
+  }, 4 * 60 * 60 * 1000);
+}
+
 (async () => {
   if (!telegramEnabled) {
     console.log('[Korvin] TELEGRAM_BOT_TOKEN not set - running in dashboard-only mode. Telegram bot disabled.');
@@ -698,6 +734,8 @@ bot.on('voice', async (msg) => {
     await startDashboard();
     activateStoredCronJobs();
     activateSecurityMonitor();
+    activateDailyDigest();
+    activateGoalHeartbeat();
     console.log('Korvin bot started. /help for commands.');
 
     setTimeout(() => {

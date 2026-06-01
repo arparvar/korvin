@@ -13,7 +13,7 @@
 | Agent | ✅ running | — |
 | Model | ✅ active | gemini-flash via LiteLLM |
 | Telegram | ✅ active | @NosisTechBot |
-| Voice | ✅ correct | Whisper tiny.en + Supertonic supertonic-3 (M1) |
+| Voice | ✅ correct | Whisper tiny.en + Kokoro TTS |
 | Memory | ✅ persistent | SQLite |
 | LiteLLM health | ✅ FIXED | reachable (was showing error before fix) |
 | Bot health | ✅ | running |
@@ -38,8 +38,7 @@
 | Connected channels: Telegram @NosisTechBot | ✅ connected |
 | WhatsApp / Discord / Signal | ⚪ pending setup |
 | STT label | ✅ Whisper tiny.en — active |
-| TTS label | ✅ Supertonic supertonic-3 (M1) — active |
-| Kokoro | ✅ REMOVED — gone from voice status |
+| TTS label | ✅ Kokoro — active |
 
 ### Skills Tab
 Installed: `web-researcher`, `task-automator`, `document-drafter`, `inbox-summarizer`, `security-monitor`  

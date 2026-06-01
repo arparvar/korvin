@@ -13,7 +13,7 @@ Korvin is a self-hosted personal AI agent. $5/month VPS. No cloud subscriptions.
 | LiteLLM proxy | Model router (port 4000) — DeepSeek, Gemini, and others |
 | SQLite | Ordered conversation memory |
 | Faster-Whisper tiny.en | Local speech-to-text, no API cost — 4-8x faster, int8 quantized |
-| Supertonic TTS | Local text-to-speech (port 7788) |
+| Kokoro TTS | Local text-to-speech (no external API) |
 
 ---
 
@@ -167,20 +167,14 @@ grep llm_response data/audit.ndjson | python3 -c "import sys,json; [print(json.l
 ## Voice Pipeline
 
 ```
-Microphone → VAD check → Whisper STT → LLM → Supertonic/Chatterbox TTS → Audio reply
+Microphone → VAD check → Whisper STT → LLM → Kokoro TTS → Audio reply
 ```
 
 **VAD (Voice Activity Detection):** Silent audio (< -40 dBFS) is rejected before Whisper loads. Saves CPU, prevents hallucination on silence.
 
 **STT:** Faster-Whisper tiny.en running locally (int8 quantized — ~95 MB RAM, 4-8x faster than stock Whisper, identical accuracy). Model: configurable via `KORVIN_STT_MODEL`. Upgrade path: set `KORVIN_STT_MODEL=distil-large-v3` to use Distil-Whisper's architecture inside Faster-Whisper's engine — no code change required.
 
-**TTS Providers:**
-| Provider | Env value | Config |
-|----------|-----------|--------|
-| Supertonic (default) | `supertonic` | `KORVIN_TTS_URL`, `KORVIN_TTS_VOICE`, `KORVIN_TTS_MODEL` |
-| Chatterbox Turbo | `chatterbox` | `KORVIN_CHATTERBOX_URL` (default: 127.0.0.1:7789) |
-
-Switch via dashboard Settings tab (toggle button) or set `KORVIN_TTS_PROVIDER` in `/etc/korvin.env`.
+**TTS:** Kokoro — runs locally, no API cost, no external service required.
 
 ---
 
@@ -227,11 +221,6 @@ Two-layer auth on protected endpoints:
 | `KORVIN_API_KEY` | — | Dashboard auth key |
 | `KORVIN_DASHBOARD_TOKEN` | (off) | Second auth factor for dashboard |
 | `LITELLM_MASTER_KEY` | — | LLM proxy auth |
-| `KORVIN_TTS_PROVIDER` | `supertonic` | TTS engine selection |
-| `KORVIN_TTS_URL` | `http://127.0.0.1:7788/v1/audio/speech` | Supertonic endpoint |
-| `KORVIN_TTS_VOICE` | `M1` | Supertonic voice ID |
-| `KORVIN_TTS_MODEL` | `supertonic-3` | Supertonic model |
-| `KORVIN_CHATTERBOX_URL` | `http://127.0.0.1:7789` | Chatterbox endpoint |
 | `KORVIN_STT_MODEL` | `tiny.en` | Faster-Whisper model size (also accepts `distil-large-v3` for upgrade) |
 | `KORVIN_ADVANCED_SCRAPER` | (off) | Enable CSS-targeted web scraping |
 | `KORVIN_MEMORY_BACKEND` | `sqlite` | Set to `chromadb` for vector memory |

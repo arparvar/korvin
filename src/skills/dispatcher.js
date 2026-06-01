@@ -108,24 +108,17 @@ function scheduleToCron(schedule) {
   return map[normalized] || null;
 }
 
-function saveScheduledTask(schedule, action) {
+function saveScheduledTask(schedule, action, chatId) {
   const cronExpr = scheduleToCron(schedule);
   if (!cronExpr) {
-    return `I can schedule daily, every day, hourly, weekly, Monday, or Mon right now.`;
+    return 'I can schedule daily, every day, hourly, weekly, Monday, or Mon right now.';
   }
-
   const jobs = loadCronJobs();
-  const id = `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const job = {
-    id,
-    schedule,
-    cronExpr,
-    action,
-    created: new Date().toISOString(),
-  };
+  const id = 'job-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  const job = { id, schedule, cronExpr, action, chatId: String(chatId || 'default'), created: new Date().toISOString() };
   jobs.push(job);
   saveCronJobs(jobs);
-  return `Scheduled: ${action} at ${cronExpr}. ID: ${id}. Cancel with: /cancel ${id}`;
+  return 'Scheduled: ' + action + ' at ' + cronExpr + '. ID: ' + id + '. Cancel with: /cancel ' + id;
 }
 
 function execCommand(command) {
@@ -217,10 +210,10 @@ async function dispatchSkill(text, chatId = 'default') {
   if (match) return await runWebResearch(safeParseArg(match[1].trim()));
 
   match = message.match(/^every\s+(.+?)\s+(do|remind me to)\s+(.+)/i);
-  if (match) return saveScheduledTask(match[1].trim(), match[3].trim());
+  if (match) return saveScheduledTask(match[1].trim(), match[3].trim(), chatId);
 
   match = message.match(/^remind me to\s+(.+?)\s+every\s+(.+)/i);
-  if (match) return saveScheduledTask(match[2].trim(), match[1].trim());
+  if (match) return saveScheduledTask(match[2].trim(), match[1].trim(), chatId);
 
   match = message.match(/^write (?:a|an)\s+(.+?)\s+(?:about|on|for|to)\s+(.+)/i);
   if (match) return await draftDocument(safeParseArg(match[1].trim()), safeParseArg(match[2].trim()));

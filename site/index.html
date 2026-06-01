@@ -130,46 +130,46 @@ Memory:  SQLite persistent</code></pre>
         </article>
         <article class="skill-card">
           <div class="skill-header">
-            <span class="skill-trigger">every [schedule] do [action]</span>
-            <span class="skill-name">Task Scheduling</span>
+            <span class="skill-trigger">/patch [package]</span>
+            <span class="skill-name">CVE Patch Research</span>
           </div>
-          <p>Creates cron jobs that run automatically and message you the result. Supports daily, hourly, weekly, and natural language schedules like "every weekday morning."</p>
+          <p>Queries CVE databases for a package or dependency, returns severity scores, affected versions, and patch recommendations. Output is AI-synthesized &mdash; always verify against NVD or vendor advisories before acting.</p>
           <div class="skill-examples">
             <p class="examples-label">Ways to use it</p>
             <ul>
-              <li>"Every weekday morning research top startup funding news" &mdash; automated daily briefing</li>
-              <li>"Every Monday run /scan deps and flag anything not updated in a year" &mdash; automated security hygiene</li>
-              <li>"Every Friday at 6pm remind me to write my weekly review" &mdash; habit system built in chat</li>
+              <li>"/patch openssl" &mdash; severity scores and patch path for the current version</li>
+              <li>"/patch node" &mdash; known vulnerabilities in your runtime before a deploy</li>
+              <li>Pair with Dependency Scan &mdash; scan deps, then patch anything flagged in one flow</li>
             </ul>
           </div>
         </article>
         <article class="skill-card">
           <div class="skill-header">
-            <span class="skill-trigger">write a [type] about [topic]</span>
-            <span class="skill-name">Document Drafting</span>
+            <span class="skill-trigger">/save [name] &nbsp;&bull;&nbsp; /load [name]</span>
+            <span class="skill-name">Named Sessions</span>
           </div>
-          <p>Generates structured documents &mdash; proposals, reports, emails, SOPs, job descriptions. Output includes section headers and placeholder fields ready to fill in.</p>
+          <p>Save your current conversation under a name and restore it later. Switch between contexts &mdash; a project, a client, a research thread &mdash; without losing history.</p>
           <div class="skill-examples">
             <p class="examples-label">Ways to use it</p>
             <ul>
-              <li>"Research our top 3 competitors then write a competitive analysis" &mdash; research feeds straight into the draft</li>
-              <li>"Write a client onboarding SOP with blank placeholders &mdash; I'll fill in the specifics" &mdash; reusable template on demand</li>
-              <li>Set a rule once: "from now on keep documents under 400 words" &mdash; every draft respects it automatically</li>
+              <li>"/save project-alpha" before switching topics &mdash; pick up exactly where you left off</li>
+              <li>Keep separate sessions per client &mdash; load the right context before each call</li>
+              <li>Save a research session mid-way, load it the next morning and continue</li>
             </ul>
           </div>
         </article>
         <article class="skill-card">
           <div class="skill-header">
-            <span class="skill-trigger">/security</span>
-            <span class="skill-name">Security Monitor</span>
+            <span class="skill-trigger">/scan [url|ip|hash] &nbsp;&bull;&nbsp; /scan system</span>
+            <span class="skill-name">Security Scan</span>
           </div>
-          <p>Runs a live VPS health report: CPU, RAM, disk, uptime, and status of all Korvin services. Also fires automatically every Monday at 8 AM.</p>
+          <p>VirusTotal lookup across 90+ engines for any URL, IP, or file hash. <code>/scan system</code> reads your weekly Lynis audit report &mdash; Korvin never runs Lynis directly, preserving the privilege boundary.</p>
           <div class="skill-examples">
             <p class="examples-label">Ways to use it</p>
             <ul>
-              <li>After any deploy: "/security" &mdash; confirm all services restarted cleanly in one message</li>
-              <li>"Every morning run /security" &mdash; daily digest lands in Telegram before you start work</li>
-              <li>Baseline it weekly with Task Scheduling &mdash; notice disk creep before it becomes a problem</li>
+              <li>"/scan 185.220.101.47" &mdash; know if an IP is flagged before connecting</li>
+              <li>"/scan system" &mdash; Lynis score and top findings from the last weekly audit</li>
+              <li>All HIGH-risk scans require /confirm before executing &mdash; no accidental lookups</li>
             </ul>
           </div>
         </article>
@@ -289,20 +289,19 @@ module.exports = { run };</code></pre>
       <div class="terminal-card" style="max-width:640px;margin:0 auto">
         <div class="terminal-top"><span></span><span></span><span></span></div>
         <pre><code>Research [topic]          &mdash; web search + structured report
-every [schedule] do [X]   &mdash; create an automated cron job
-write a [doc type]        &mdash; structured document draft
-/grill [topic]            &mdash; clarifying questions, then research
-/security                 &mdash; live VPS health snapshot
-/scan deps                &mdash; dependency metadata scan
 /youtube [url]            &mdash; transcribe any YouTube video
+/scan [url|ip|hash]       &mdash; VirusTotal lookup (90+ engines)
+/scan system              &mdash; latest Lynis security audit
+/patch [package]          &mdash; CVE research + patch recommendations
+/grill [topic]            &mdash; clarifying questions before research
+/save [name]              &mdash; save current session by name
+/load [name]              &mdash; restore a named session
 /rule add [preference]    &mdash; save a persistent rule
 /rule list                &mdash; view your active rules
 /brief                    &mdash; toggle concise mode on/off
 /summarize                &mdash; summarize the current session
 /search [query]           &mdash; search your message history
-/new                      &mdash; clear session and start fresh
-/save [name]              &mdash; save current session by name
-/load [name]              &mdash; restore a named session
+/scan deps                &mdash; dependency metadata scan
 /status                   &mdash; agent + service health
 /log                      &mdash; recent activity log</code></pre>
       </div>
@@ -320,12 +319,13 @@ write a [doc type]        &mdash; structured document draft
       <p class="eyebrow">Roadmap</p>
       <h2>What is still being built.</h2>
       <ul>
+        <li>Task scheduling &mdash; create cron jobs from natural language</li>
+        <li>Document drafting &mdash; proposals, SOPs, reports from chat</li>
         <li>Inbox summarizer (Gmail/Outlook OAuth)</li>
         <li>WhatsApp, Discord, Signal channels</li>
         <li>RAG over local documents</li>
         <li>Wake-word voice client</li>
         <li>Multi-agent orchestration</li>
-        <li>Tested Docker compose deploy</li>
       </ul>
     </section>
   </main>

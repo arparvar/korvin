@@ -21,8 +21,13 @@ Your data stays on your machine. Your keys stay in your env file. If the agent m
 | Persistent memory — SQLite + 3 overflow strategies | ✅ Live |
 | Named sessions — `/save` and `/load` | ✅ Live |
 | Web research skill | ✅ Live |
+| YouTube transcription | ✅ Live |
+| Dependency scan | ✅ Live |
 | Security scan — VirusTotal, Lynis | ✅ Live |
 | CVE patch research | ✅ Live |
+| Persistent rules — `/rule add/list/remove` | ✅ Live |
+| Session summarization — `/summarize` | ✅ Live |
+| Memory search — `/search` | ✅ Live |
 | Confirmation gate — HIGH-risk commands require `/confirm` | ✅ Live |
 | FastAPI dashboard — chat, memory, model switcher, logs | ✅ Live |
 | Model switcher — swap models from dashboard, no restart | ✅ Live |
@@ -306,8 +311,15 @@ Every conversation is stored in SQLite. Three strategies control what happens wh
 | `/brief` | — | Daily briefing summary |
 | `/save [name]` | — | Save current session by name |
 | `/load [name]` | — | Restore a named session |
-| `/grill` | — | Stress-test a claim or argument |
+| `/grill <topic>` | — | Ask clarifying questions before research |
 | `Research <topic>` | — | Web research on any topic |
+| `/youtube <url>` | — | Transcribe any YouTube video |
+| `/scan deps` | — | Dependency metadata scan |
+| `/rule add <text>` | — | Save a persistent preference rule |
+| `/rule list` | — | View saved rules |
+| `/rule remove <n>` | — | Remove a rule by number |
+| `/summarize` | — | Summarize the current session |
+| `/search <query>` | — | Search conversation history |
 | `/help` | — | Command menu |
 
 **HIGH-risk gate:** Every HIGH-risk command requires explicit `/confirm <hash>` before executing. Pending actions expire after 5 minutes. The agent cannot bypass this gate — it is enforced in `src/middleware/confirmation-gate.js`, not in the system prompt.

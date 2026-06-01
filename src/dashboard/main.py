@@ -121,7 +121,7 @@ def root():
     html = html.replace("__KORVIN_API_KEY__", api_key)
     return HTMLResponse(content=html)
 
-@app.get("/api/status")
+@app.get("/api/status", dependencies=[Depends(require_key)])
 def status():
     return {"korvin": "online", "version": "0.1.1", "memory": "sqlite"}
 
@@ -134,7 +134,7 @@ def _get_tts_provider() -> str:
         pass
     return os.environ.get("KORVIN_TTS_PROVIDER", "supertonic")
 
-@app.get("/api/voice/status")
+@app.get("/api/voice/status", dependencies=[Depends(require_key)])
 def voice_status():
     voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
     if voice == "default":
@@ -205,7 +205,7 @@ def health_check():
         health["status"] = "degraded"
     return health
 
-@app.get("/api/system")
+@app.get("/api/system", dependencies=[Depends(require_key)])
 def system_info():
     try:
         disk = subprocess.check_output("df -h / | tail -1", shell=True).decode().split()
@@ -219,7 +219,7 @@ def system_info():
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/api/memory/recent")
+@app.get("/api/memory/recent", dependencies=[Depends(require_key)])
 def recent_memory(chat_id: str = "", limit: int = 20):
     if not chat_id:
         chat_id = os.environ.get("KORVIN_CHAT_ID", "dashboard-chat")
@@ -236,7 +236,7 @@ def recent_memory(chat_id: str = "", limit: int = 20):
     except Exception as e:
         return {"messages": [], "error": str(e)}
 
-@app.get("/api/memory/context-window")
+@app.get("/api/memory/context-window", dependencies=[Depends(require_key)])
 def context_window(chat_id: str = "", limit: int = 10, max_tokens: int = 128000):
     if not chat_id:
         chat_id = os.environ.get("KORVIN_CHAT_ID", "dashboard-chat")
@@ -266,7 +266,7 @@ def context_window(chat_id: str = "", limit: int = 10, max_tokens: int = 128000)
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/api/killswitch")
+@app.get("/api/killswitch", dependencies=[Depends(require_key)])
 def killswitch_status():
     active = os.path.exists(KILLSWITCH_FLAG)
     return {"killswitch": active, "mode": "read_only" if active else "normal"}
@@ -348,7 +348,7 @@ def _write_active_model(slug: str):
     with open(ACTIVE_MODEL_PATH, "w") as f:
         f.write(slug)
 
-@app.get("/api/memory/limit")
+@app.get("/api/memory/limit", dependencies=[Depends(require_key)])
 def get_memory_limit():
     config = _read_config()
     return {
@@ -394,7 +394,7 @@ def prune_memory(body: PruneRequest):
     pruned = prune(body.chat_id, limit)
     return {"pruned": pruned, "limit": limit, "chat_id": body.chat_id}
 
-@app.get("/api/active-model")
+@app.get("/api/active-model", dependencies=[Depends(require_key)])
 def get_active_model():
     slug = _read_active_model()
     model_string = MODEL_WHITELIST.get(slug, "unknown")
@@ -421,7 +421,7 @@ def switch_model(body: SwitchModelRequest):
         _write_active_model(previous)
         raise HTTPException(status_code=500, detail=f"Switch failed: {str(e)}. Rolled back to {previous}.")
 
-@app.get("/api/models")
+@app.get("/api/models", dependencies=[Depends(require_key)])
 def get_models():
     models = []
     for slug, model_string in MODEL_WHITELIST.items():
@@ -641,7 +641,7 @@ def chat_history(limit: int = 50):
 
 # ── Chat Timeout (dashboard-configurable) ─────────────────────────────
 
-@app.get("/api/chat-timeout")
+@app.get("/api/chat-timeout", dependencies=[Depends(require_key)])
 def chat_timeout_get():
     return {"timeout": _read_chat_timeout()}
 
@@ -657,7 +657,7 @@ def chat_timeout_set(body: ChatTimeoutRequest):
 
 # ── Token Warning Threshold (dashboard-configurable) ──────────────────
 
-@app.get("/api/token-warning-threshold")
+@app.get("/api/token-warning-threshold", dependencies=[Depends(require_key)])
 def token_warning_get():
     return {"threshold": _read_token_warning()}
 
@@ -673,7 +673,7 @@ def token_warning_set(body: TokenWarningRequest):
 
 # ── Token Usage & Rates ────────────────────────────────────────────────
 
-@app.get("/api/token-usage")
+@app.get("/api/token-usage", dependencies=[Depends(require_key)])
 def token_usage():
     usage = _read_token_usage()
     rates = _read_token_rates()
@@ -701,7 +701,7 @@ def token_usage():
         "month": {"tokens": month_tokens, "cost": round(month_cost, 6)}
     }
 
-@app.get("/api/token-rates")
+@app.get("/api/token-rates", dependencies=[Depends(require_key)])
 def token_rates():
     return {"rates": _read_token_rates()}
 

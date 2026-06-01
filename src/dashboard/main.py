@@ -276,12 +276,17 @@ def killswitch_status():
 @app.get("/api/logs", dependencies=[Depends(require_key)])
 def get_logs(lines: int = 100):
     try:
-        output = subprocess.check_output(
-            ["journalctl", "-u", "korvin-dashboard", f"-n{lines}", "--no-pager"],
-            stderr=subprocess.STDOUT
-        ).decode()
-        sanitized = _redact_sensitive(LOG_SANITIZE.sub("[sanitized]", output))
-        return {"lines": sanitized.strip().splitlines()}
+        audit_path = DATA_DIR / "audit.ndjson"
+        if not audit_path.exists():
+            return {"lines": [], "error": "No audit log found"}
+        raw_lines = audit_path.read_text().splitlines()
+        if not raw_lines:
+            return {"lines": [], "error": "No audit log found"}
+        formatted = []
+        for raw_line in raw_lines[-lines:]:
+            entry = json.loads(raw_line)
+            formatted.append(f"[{entry.get('timestamp','?')}] {entry.get('event','?')} chat={entry.get('chat_id','?')}")
+        return {"lines": formatted}
     except Exception as e:
         return {"lines": [], "error": str(e)}
 
@@ -754,7 +759,7 @@ def set_tts_provider(body: TtsProviderRequest):
     TTS_PROVIDER_PATH.write_text(body.provider)
     return {"provider": body.provider, "ok": True}
 
-_STT_MODEL_ALLOWLIST = {"tiny.en", "base.en", "small.en", "distil-large-v3"}
+_STT_MODEL_ALLOWLIST = {"tiny.en", "distil-large-v3"}
 
 class SttModelRequest(BaseModel):
     model: str

@@ -348,10 +348,8 @@
       <label style="font-size:0.82rem;color:var(--text2)">STT Model</label>
       <div class="status-row" style="margin-top:6px;gap:8px">
         <select id="stt-model-select" class="field-input" style="width:auto;padding:4px 8px" onchange="document.getElementById('stt-model-warning').style.display=this.value==='distil-large-v3'?'block':'none'">
-          <option value="tiny.en">tiny.en ? fastest, ~95 MB RAM (default)</option>
-          <option value="base.en">base.en ? better accuracy, ~350 MB RAM</option>
-          <option value="small.en">small.en ? good quality, ~1 GB RAM</option>
-          <option value="distil-large-v3">distil-large-v3 ? highest quality, 4 GB+ RAM required</option>
+          <option value="tiny.en">tiny.en — fastest, ~95 MB RAM (default)</option>
+          <option value="distil-large-v3">distil-large-v3 — highest quality, 4 GB+ RAM required</option>
         </select>
         <button class="apply-btn" onclick="saveSttModel()" style="margin:0">Save</button>
       </div>

@@ -49,7 +49,8 @@ Memory:  SQLite persistent</code></pre>
         <article class="card"><h3>Voice — STT + TTS included</h3><p>Send a voice message, get a spoken reply. Faster-Whisper tiny.en transcribes speech (~95 MB RAM). Kokoro TTS (bm_lewis) generates voice replies. Both installed automatically — no extra setup.</p></article>
         <article class="card"><h3>Persistent memory</h3><p>Every conversation stored in SQLite. Sliding window keeps the agent alive forever.</p></article>
         <article class="card"><h3>Model switching</h3><p>Tap a model in the dashboard. No restart. DeepSeek V4, Gemini Flash, Claude, or any Ollama model.</p></article>
-        <article class="card"><h3>6 skills included</h3><p>Web research, task scheduling, document drafting, VPS security reports, dependency scanning, and YouTube transcription &mdash; wired to Telegram and dashboard chat.</p></article>
+        <article class="card"><h3>9 skills included</h3><p>Web research, YouTube transcription, dependency scanning, VirusTotal security scan, CVE patch research, named sessions, persistent rules, session summarization, and memory search &mdash; all wired to Telegram and dashboard chat.</p></article>
+        <article class="card"><h3>Named sessions &amp; persistent rules</h3><p>/save and /load switch conversation context by name. /rule add stores your preferences &mdash; response style, length, format &mdash; and every reply respects them automatically.</p></article>
         <article class="card"><h3>Rate limited & OWASP reviewed</h3><p>Per-user rate limiting (20 req/60s). OWASP LLM Top 10 2025 reviewed. Prompt injection blocking. Output secret redaction. Automated smoke test included.</p></article>
       </div>
     </section>
@@ -57,16 +58,18 @@ Memory:  SQLite persistent</code></pre>
       <div>
         <p class="eyebrow">Dashboard</p>
         <h2>Manage your agent from a browser.</h2>
-        <p>The Korvin dashboard runs on your VPS, protected by Cloudflare Access. Switch models, browse memory, monitor tokens, and set a kill switch.</p>
+        <p>The Korvin dashboard runs on your server, protected by Cloudflare Access. Chat directly, switch models with one tap, browse memory, track tokens, and freeze the agent instantly. All from your phone or desktop.</p>
         <a class="button secondary" href="https://github.com/nosistech/korvin/blob/main/docs/deployment.md">Deployment guide</a>
       </div>
       <ul class="check-list">
-        <li>Active model selector - switch in one click</li>
+        <li>Dashboard chat &mdash; talk to the agent directly without Telegram</li>
+        <li>Active model selector &mdash; switch in one tap, no restart</li>
         <li>Conversation history browser</li>
         <li>Token usage tracking and cost estimates</li>
         <li>Memory context window and pruning controls</li>
-        <li>Kill switch - instantly locks agent to read-only</li>
-        <li>System health - CPU, RAM, disk, uptime</li>
+        <li>Kill switch &mdash; instantly locks agent to read-only</li>
+        <li>System health &mdash; CPU, RAM, disk, uptime</li>
+        <li>Log viewer &mdash; sanitized, no secrets exposed</li>
       </ul>
     </section>
     <section class="section warning">
@@ -109,7 +112,7 @@ Memory:  SQLite persistent</code></pre>
     <section class="section" id="skills">
       <div class="section-heading">
         <p class="eyebrow">Skills</p>
-        <h2>Six skills. Unlimited ways to use them.</h2>
+        <h2>Nine skills. Unlimited ways to use them.</h2>
         <p>Every skill works through Telegram and dashboard chat &mdash; just describe what you need. New skills can be added without touching the core.</p>
       </div>
       <div class="skills-list">
@@ -123,7 +126,7 @@ Memory:  SQLite persistent</code></pre>
             <p class="examples-label">Ways to use it</p>
             <ul>
               <li>"Research competitors to my SaaS idea: [describe it]" &mdash; market scan in seconds</li>
-              <li>"Research [topic] then write an executive summary" &mdash; chains into Document Drafting automatically</li>
+              <li>"Research [topic] then write an executive summary" &mdash; research feeds directly into the LLM for a structured output</li>
               <li>"Every Monday research the top AI news from the past week" &mdash; automated weekly intelligence feed</li>
             </ul>
           </div>
@@ -184,7 +187,7 @@ Memory:  SQLite persistent</code></pre>
             <ul>
               <li>Pre-deploy ritual: "/scan deps" &mdash; flag anything stale or suspicious before pushing</li>
               <li>"Every Monday run /scan deps" &mdash; automated weekly hygiene, no manual checking</li>
-              <li>"Run /scan deps then write a formal dependency audit I can share with the team" &mdash; chains into Document Drafting</li>
+              <li>"Run /scan deps then write a formal dependency audit I can share with the team" &mdash; the LLM formats the output as a shareable report</li>
             </ul>
           </div>
         </article>
@@ -200,6 +203,51 @@ Memory:  SQLite persistent</code></pre>
               <li>Paste a URL and say "pull out the 5 most actionable takeaways" &mdash; transcript feeds into the LLM in the same message</li>
               <li>"Transcribe this conference talk and turn it into structured notes: [url]" &mdash; replaces a 45-minute watch</li>
               <li>"Research [topic] then transcribe [url] and tell me what the video adds or contradicts" &mdash; cross-skill fact check</li>
+            </ul>
+          </div>
+        </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">/rule add [preference] &nbsp;&bull;&nbsp; /rule list</span>
+            <span class="skill-name">Persistent Rules</span>
+          </div>
+          <p>Save any preference and Korvin applies it to every future response &mdash; no settings file, no re-explaining. Rules persist across sessions and accumulate over time.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Ways to use it</p>
+            <ul>
+              <li>"/rule add always use bullet points" &mdash; every response reformats automatically</li>
+              <li>"/rule add keep answers under 150 words" &mdash; forces brevity without asking each time</li>
+              <li>"/rule list" then "/rule remove 2" &mdash; manage your preferences like a settings panel</li>
+            </ul>
+          </div>
+        </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">/summarize &nbsp;&bull;&nbsp; /search [query]</span>
+            <span class="skill-name">Memory Management</span>
+          </div>
+          <p>Compress a long conversation into a summary, or search across your entire message history by keyword. Both work on the live SQLite database &mdash; no data leaves your server.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Ways to use it</p>
+            <ul>
+              <li>"/summarize" at the end of a long research session &mdash; condense it before sharing or continuing tomorrow</li>
+              <li>"/search invoice" &mdash; find every time you discussed invoices, across all past sessions</li>
+              <li>Summarize then save &mdash; "/summarize" followed by "/save project-name" gives you a compact, named checkpoint</li>
+            </ul>
+          </div>
+        </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">/log</span>
+            <span class="skill-name">Activity Log</span>
+          </div>
+          <p>Returns a timestamped log of recent agent activity &mdash; commands run, skills triggered, errors caught. Useful for auditing what the agent did while you were away.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Ways to use it</p>
+            <ul>
+              <li>"/log" after returning to the dashboard &mdash; see everything that happened since your last session</li>
+              <li>Pair with /status &mdash; "/log" for what ran, "/status" for current resource usage</li>
+              <li>Debug a missed cron or failed scan by checking the log first before digging into service logs</li>
             </ul>
           </div>
         </article>
@@ -229,7 +277,7 @@ Memory:  SQLite persistent</code></pre>
           <ul class="check-list" style="margin-top:20px">
             <li>/grill [topic] &mdash; get clarifying questions before research begins</li>
             <li>Answer in one message &mdash; Korvin synthesizes and searches</li>
-            <li>Pair with Document Drafting for precise briefs</li>
+            <li>Pair with Web Research for precise, context-aware briefs</li>
             <li>Use before any ambiguous or high-stakes request</li>
           </ul>
         </div>

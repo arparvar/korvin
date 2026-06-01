@@ -14,7 +14,7 @@ Before comparing, record what Korvin gained in the current sprint:
 
 | Task | Deliverable | Status |
 |---|---|---|
-| 13 | Supertonic 3 TTS evaluation on ZIION VM | DONE — verdict MAYBE→YES pending human QA |
+| 13 | Supertonic 3 TTS evaluation on ZIION VM | SCRAPPED — Kokoro retained as sole TTS |
 | 14 | `src/security/external-content.js` + dispatcher wired | DONE — strips special tokens, boundary markers |
 | 15 | `/new`, `/reset`, `/summarize` Telegram commands; SQLite rate limiter; `/api/session/reset` dashboard endpoint | DONE |
 | 16 | `install-desktop.sh`; optional Telegram startup; `quickstart-desktop.md` | DONE — confirmed live on ZIION |
@@ -329,8 +329,8 @@ Allow `/save <name>` and `/load <name>` to create and restore named session snap
 **G11. DM pairing with QR/code flow**  
 For future multi-user deployment: generate a pairing code on first message from unknown user. Operator approves via dashboard. Allowlist persisted in SQLite. Maps to OpenClaw's `src/pairing/` module.
 
-**G12. Supertonic TTS wiring**  
-After human QA approves pronunciation (from Task 13 report), wire `KORVIN_TTS_PROVIDER=supertonic` flag in gateway. LiteLLM proxy already accepts OpenAI-compatible `/v1/audio/speech`. Add TTS call after each assistant response if flag is set.
+**G12. Supertonic TTS wiring — SKIPPED**  
+Supertonic evaluation scrapped. Kokoro is the sole TTS provider. No wiring needed.
 
 ---
 

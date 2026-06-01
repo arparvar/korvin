@@ -122,11 +122,11 @@ Memory:  SQLite persistent</code></pre>
           </div>
           <p>Searches the web via DuckDuckGo and synthesizes a structured report with key findings and sources. No API key required &mdash; runs entirely through Korvin.</p>
           <div class="skill-examples">
-            <p class="examples-label">Try it</p>
+            <p class="examples-label">Ways to use it</p>
             <ul>
-              <li>"Research the latest PostgreSQL 17 features"</li>
-              <li>"Research competitors to my SaaS idea: [describe it]"</li>
-              <li>"Research side effects of [medication] and summarize in plain English"</li>
+              <li>"Research competitors to my SaaS idea: [describe it]" &mdash; market scan in seconds</li>
+              <li>"Research [topic] then write an executive summary" &mdash; chains into Document Drafting automatically</li>
+              <li>"Every Monday research the top AI news from the past week" &mdash; automated weekly intelligence feed</li>
             </ul>
           </div>
         </article>
@@ -135,13 +135,13 @@ Memory:  SQLite persistent</code></pre>
             <span class="skill-trigger">every [schedule] do [action]</span>
             <span class="skill-name">Task Scheduling</span>
           </div>
-          <p>Creates cron jobs that run automatically and message you the result. Supports daily, hourly, weekly, and day-of-week schedules.</p>
+          <p>Creates cron jobs that run automatically and message you the result. Supports daily, hourly, weekly, and natural language schedules like "every weekday morning."</p>
           <div class="skill-examples">
-            <p class="examples-label">Try it</p>
+            <p class="examples-label">Ways to use it</p>
             <ul>
-              <li>"Every morning remind me to review my priorities"</li>
-              <li>"Every Monday research the top AI news from the past week"</li>
-              <li>"Remind me to drink water every 2 hours"</li>
+              <li>"Every weekday morning research top startup funding news" &mdash; automated daily briefing</li>
+              <li>"Every Monday run /scan deps and flag anything not updated in a year" &mdash; automated security hygiene</li>
+              <li>"Every Friday at 6pm remind me to write my weekly review" &mdash; habit system built in chat</li>
             </ul>
           </div>
         </article>
@@ -152,11 +152,11 @@ Memory:  SQLite persistent</code></pre>
           </div>
           <p>Generates structured documents &mdash; proposals, reports, emails, SOPs, job descriptions. Output includes section headers and placeholder fields ready to fill in.</p>
           <div class="skill-examples">
-            <p class="examples-label">Try it</p>
+            <p class="examples-label">Ways to use it</p>
             <ul>
-              <li>"Write a proposal about migrating our app to a VPS"</li>
-              <li>"Draft a client email explaining a two-week delay"</li>
-              <li>"Write a job posting for a backend developer with Go experience"</li>
+              <li>"Research our top 3 competitors then write a competitive analysis" &mdash; research feeds straight into the draft</li>
+              <li>"Write a client onboarding SOP with blank placeholders &mdash; I'll fill in the specifics" &mdash; reusable template on demand</li>
+              <li>Set a rule once: "from now on keep documents under 400 words" &mdash; every draft respects it automatically</li>
             </ul>
           </div>
         </article>
@@ -165,13 +165,13 @@ Memory:  SQLite persistent</code></pre>
             <span class="skill-trigger">/security</span>
             <span class="skill-name">Security Monitor</span>
           </div>
-          <p>Runs a live VPS health report: CPU, RAM, disk, uptime, and status of all Korvin services. Detects and reports anomalies in seconds.</p>
+          <p>Runs a live VPS health report: CPU, RAM, disk, uptime, and status of all Korvin services. Also fires automatically every Monday at 8 AM.</p>
           <div class="skill-examples">
-            <p class="examples-label">Try it</p>
+            <p class="examples-label">Ways to use it</p>
             <ul>
-              <li>"/security" &mdash; instant health snapshot</li>
-              <li>"every morning run /security" &mdash; daily automated health digest</li>
-              <li>After a deploy: run /security to confirm all services restarted cleanly</li>
+              <li>After any deploy: "/security" &mdash; confirm all services restarted cleanly in one message</li>
+              <li>"Every morning run /security" &mdash; daily digest lands in Telegram before you start work</li>
+              <li>Baseline it weekly with Task Scheduling &mdash; notice disk creep before it becomes a problem</li>
             </ul>
           </div>
         </article>
@@ -182,11 +182,11 @@ Memory:  SQLite persistent</code></pre>
           </div>
           <p>Reads package.json and requirements.txt and reports dependency metadata &mdash; names, versions, and known issues. Zero-execution: never invokes npm, pip, or any package manager.</p>
           <div class="skill-examples">
-            <p class="examples-label">Try it</p>
+            <p class="examples-label">Ways to use it</p>
             <ul>
-              <li>"/scan deps" &mdash; full dependency report</li>
-              <li>Run before a production deploy to catch stale or flagged packages</li>
-              <li>Schedule weekly: "every Monday run /scan deps"</li>
+              <li>Pre-deploy ritual: "/scan deps" &mdash; flag anything stale or suspicious before pushing</li>
+              <li>"Every Monday run /scan deps" &mdash; automated weekly hygiene, no manual checking</li>
+              <li>"Run /scan deps then write a formal dependency audit I can share with the team" &mdash; chains into Document Drafting</li>
             </ul>
           </div>
         </article>
@@ -195,16 +195,56 @@ Memory:  SQLite persistent</code></pre>
             <span class="skill-trigger">/youtube [url]</span>
             <span class="skill-name">YouTube Transcription</span>
           </div>
-          <p>Transcribes any YouTube video and returns the full text. Paste a YouTube URL in chat and Korvin handles it automatically &mdash; no need for the /youtube prefix.</p>
+          <p>Transcribes any YouTube video and returns the full text. Paste a URL in chat without any prefix &mdash; Korvin detects it and transcribes automatically.</p>
           <div class="skill-examples">
-            <p class="examples-label">Try it</p>
+            <p class="examples-label">Ways to use it</p>
             <ul>
-              <li>Paste a YouTube URL and ask "summarize this"</li>
-              <li>"Transcribe this lecture and pull out the key points: [url]"</li>
-              <li>Research a topic then transcribe a related video for deeper context</li>
+              <li>Paste a URL and say "pull out the 5 most actionable takeaways" &mdash; transcript feeds into the LLM in the same message</li>
+              <li>"Transcribe this conference talk and turn it into structured notes: [url]" &mdash; replaces a 45-minute watch</li>
+              <li>"Research [topic] then transcribe [url] and tell me what the video adds or contradicts" &mdash; cross-skill fact check</li>
             </ul>
           </div>
         </article>
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-heading">
+        <p class="eyebrow">Agent intelligence</p>
+        <h2>Korvin learns how you like to work.</h2>
+        <p>You don't fill in a settings file. You talk normally &mdash; Korvin picks up corrections and applies them to every future response.</p>
+      </div>
+      <div class="split">
+        <div>
+          <h3>Preference learning</h3>
+          <p>Say "don't do that", "next time always use bullet points", or "I prefer shorter answers" &mdash; Korvin detects the correction and saves it as a rule. Every future response applies your preferences without you repeating them.</p>
+          <ul class="check-list" style="margin-top:20px">
+            <li>Detected from natural language &mdash; no special syntax</li>
+            <li>Preferences persist across sessions</li>
+            <li>/rule add [preference] &mdash; add one explicitly</li>
+            <li>/rule list &mdash; see everything saved</li>
+            <li>/rule remove &mdash; delete one rule</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Deep research with /grill</h3>
+          <p>Before researching a complex topic, Korvin can ask you 3&ndash;5 clarifying questions to sharpen the brief. The better the context, the better the output.</p>
+          <ul class="check-list" style="margin-top:20px">
+            <li>/grill [topic] &mdash; get clarifying questions before research begins</li>
+            <li>Answer in one message &mdash; Korvin synthesizes and searches</li>
+            <li>Pair with Document Drafting for precise briefs</li>
+            <li>Use before any ambiguous or high-stakes request</li>
+          </ul>
+        </div>
+      </div>
+      <div class="terminal-card" style="max-width:640px;margin:2rem auto 0">
+        <div class="terminal-top"><span></span><span></span><span></span></div>
+        <pre><code>/grill [topic]         &mdash; clarifying questions before research
+/rule add [pref]       &mdash; save a persistent preference
+/rule list             &mdash; view all saved rules
+/new                   &mdash; clear session, start fresh
+/summarize             &mdash; summarize the current session
+/search [query]        &mdash; search your message history
+/brief                 &mdash; toggle concise one-sentence mode</code></pre>
       </div>
     </section>
     <section class="section" id="custom-skills">
@@ -250,14 +290,20 @@ module.exports = { run };</code></pre>
       </div>
       <div class="terminal-card" style="max-width:640px;margin:0 auto">
         <div class="terminal-top"><span></span><span></span><span></span></div>
-        <pre><code>Research [topic]          &mdash; web search + summary report
-every morning do [task]   &mdash; scheduled cron job
+        <pre><code>Research [topic]          &mdash; web search + structured report
+every [schedule] do [X]   &mdash; create an automated cron job
 write a [doc type]        &mdash; structured document draft
-/security                 &mdash; live VPS security report
+/grill [topic]            &mdash; clarifying questions, then research
+/security                 &mdash; live VPS health snapshot
 /scan deps                &mdash; dependency metadata scan
 /youtube [url]            &mdash; transcribe any YouTube video
-/status                   &mdash; agent + service health
+/rule add [preference]    &mdash; save a persistent rule
+/rule list                &mdash; view your active rules
 /brief                    &mdash; toggle concise mode on/off
+/summarize                &mdash; summarize the current session
+/search [query]           &mdash; search your message history
+/new                      &mdash; clear session and start fresh
+/status                   &mdash; agent + service health
 /log                      &mdash; recent activity log</code></pre>
       </div>
     </section>

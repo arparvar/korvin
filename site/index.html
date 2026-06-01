@@ -37,7 +37,7 @@
         <pre><code>Agent:   running
 Model:   DeepSeek / Gemini via LiteLLM
 Channel: Telegram active
-Voice:   Whisper STT
+Voice:   Whisper STT + Kokoro TTS
 Memory:  SQLite persistent</code></pre>
       </div>
     </section>
@@ -48,7 +48,7 @@ Memory:  SQLite persistent</code></pre>
       </div>
       <div class="grid">
         <article class="card"><h3>Telegram interface</h3><p>Send text or voice messages. Korvin replies in text or speaks back.</p></article>
-        <article class="card"><h3>Voice — STT included</h3><p>Send a voice message, get a text reply. Faster-Whisper tiny.en for transcription (~95 MB RAM). TTS (voice replies) requires a separate add-on — Supertonic or Chatterbox Turbo.</p></article>
+        <article class="card"><h3>Voice — STT + TTS included</h3><p>Send a voice message, get a spoken reply. Faster-Whisper tiny.en transcribes speech (~95 MB RAM). Kokoro TTS (bm_lewis) generates voice replies. Both installed automatically — no extra setup.</p></article>
         <article class="card"><h3>Persistent memory</h3><p>Every conversation stored in SQLite. Sliding window keeps the agent alive forever.</p></article>
         <article class="card"><h3>Model switching</h3><p>Tap a model in the dashboard. No restart. DeepSeek V4, Gemini Flash, Claude, or any Ollama model.</p></article>
         <article class="card"><h3>6 skills included</h3><p>Web research, task scheduling, document drafting, VPS security reports, dependency scanning, and YouTube transcription &mdash; wired to Telegram and dashboard chat.</p></article>
@@ -101,10 +101,10 @@ Memory:  SQLite persistent</code></pre>
           <div class="addon-tag">Edit litellm_config.yaml &mdash; restart LiteLLM</div>
         </article>
         <article class="addon-card">
-          <div class="addon-label">Voice replies</div>
-          <h3>TTS — Supertonic or Chatterbox</h3>
-          <p>Out of the box, Korvin replies in text. To enable spoken voice responses, run a compatible TTS service alongside Korvin. Supertonic 3 (port 7788) and Chatterbox Turbo (port 7789) are both supported and switchable from the dashboard.</p>
-          <div class="addon-tag">Separate service — no reinstall needed</div>
+          <div class="addon-label">Voice customization</div>
+          <h3>Kokoro voice selection</h3>
+          <p>Korvin speaks in Kokoro's bm_lewis voice by default. Swap to any other Kokoro voice ID &mdash; bm_george, af_bella, af_sky, and others &mdash; by changing one line in <code>src/voice/voice.py</code>. No reinstall, no restart of LiteLLM.</p>
+          <div class="addon-tag">One-line code edit &mdash; restart korvin service</div>
         </article>
       </div>
     </section>

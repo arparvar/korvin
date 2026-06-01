@@ -203,7 +203,7 @@ async function getResearchSummary(topic) {
 
 function getSystemStatus() {
   try {
-    const sys = JSON.parse(execSync('curl -s --max-time 2 http://localhost:3000/api/system').toString());
+    const sys = JSON.parse(execSync('curl -s --max-time 2 http://localhost:3002/api/system').toString());
     const activeModelName = getActiveModel();
     return `🟢 *Korvin Online*\n` +
       `🧠 Model: ${activeModelName}\n` +

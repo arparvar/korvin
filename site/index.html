@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KORVIN | Self-hosted AI agent. Runs on a $5 VPS.</title>
-  <meta name="description" content="KORVIN is a running personal AI agent you host yourself. Voice, memory, model switching, web research, and security scans. Telegram interface. Runs on low-cost hardware." />
+  <title>KORVIN | Self-hosted AI agent. Runs on very low-spec hardware.</title>
+  <meta name="description" content="KORVIN is a personal AI agent you host yourself. Voice, memory, model switching, web research, and security scans. Telegram interface. Runs on very low-spec hardware." />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -23,7 +23,7 @@
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow">Open-source. Self-hosted. No lock-in. v1.0.0</p>
-        <h1>Self-hosted AI agents for low-cost hardware.</h1>
+        <h1>Self-hosted AI agents for very low-spec hardware.</h1>
         <p class="hero-subtitle">Voice-first. Memory-persistent. Model-agnostic. No lock-in.</p>
         <p class="hero-text">KORVIN is a personal AI agent that runs on your own machine. Start with API keys. Graduate to fully self-hosted local models. Your data never leaves your infrastructure.</p>
         <div class="cta-row">
@@ -44,7 +44,7 @@ Memory:  SQLite persistent</code></pre>
     <section class="section">
       <div class="section-heading">
         <p class="eyebrow">What works today</p>
-        <h2>A full agent stack, running on a $5 VPS.</h2>
+        <h2>A full agent stack on very low-spec hardware.</h2>
       </div>
       <div class="grid">
         <article class="card"><h3>Telegram interface</h3><p>Send text or voice messages. Korvin replies in text or speaks back.</p></article>
@@ -74,7 +74,7 @@ Memory:  SQLite persistent</code></pre>
     <section class="section warning">
       <p class="eyebrow">Honest setup requirements</p>
       <h2>One command installs everything.</h2>
-      <p>SSH into any Ubuntu or Debian VPS once. You need a Telegram bot token and a Gemini or DeepSeek API key. The installer sets up all services automatically.</p>
+      <p>SSH into any Ubuntu or Debian machine once. You need a Telegram bot token and a Gemini or DeepSeek API key. The installer sets up all services automatically.</p>
       <div class="terminal-card" style="max-width:640px;margin:1.5rem 0">
         <div class="terminal-top"><span></span><span></span><span></span></div>
         <pre><code>curl -fsSL https://raw.githubusercontent.com/nosistech/korvin/main/install.sh | sudo bash</code></pre>
@@ -91,7 +91,7 @@ Memory:  SQLite persistent</code></pre>
         <article class="addon-card">
           <div class="addon-label">STT quality upgrade</div>
           <h3>distil-large-v3</h3>
-          <p>Switch from tiny.en to distil-large-v3 for significantly higher transcription accuracy. Set in the dashboard under Voice settings. Requires 4 GB+ RAM &mdash; not suitable for a $5 VPS.</p>
+          <p>Switch from tiny.en to distil-large-v3 for significantly higher transcription accuracy. Set in the dashboard under Voice settings. Requires 4 GB+ RAM &mdash; the base install runs on far less.</p>
           <div class="addon-tag">Dashboard setting &mdash; no reinstall</div>
         </article>
         <article class="addon-card">

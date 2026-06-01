@@ -213,6 +213,21 @@ def system_info():
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/api/system/rate-limits", dependencies=[Depends(require_key)])
+def rate_limit_status():
+    try:
+        result = subprocess.run(
+            ['node', '-e', 'const g=require("./src/openclaw/gateway"); const h=g.getLastRateLimitHeaders(); process.stdout.write(JSON.stringify(h||{}))'],
+            capture_output=True,
+            text=True,
+            cwd=APP_DIR,
+            timeout=10
+        )
+        data = json.loads(result.stdout.strip() or '{}')
+        return data if data else {"message": "No rate-limit headers seen yet — send a message first."}
+    except Exception as e:
+        return {"error": str(e)}
+
 @app.get("/api/memory/recent", dependencies=[Depends(require_key)])
 def recent_memory(chat_id: str = "", limit: int = 20):
     if not chat_id:

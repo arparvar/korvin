@@ -495,11 +495,16 @@ finally: conn.close()
   const messages = JSON.parse(raw || 'null');
   if (!messages) return `No saved session named "${safeName}".`;
   await resetSession(userId);
-  const db = require('better-sqlite3')(DB_PATH);
-  for (const m of messages) {
-    db.prepare('INSERT INTO messages (chat_id, role, content, timestamp) VALUES (?,?,?,datetime("now"))').run(userId, m.role, m.content);
-  }
-  db.close();
+  const insertScript = `
+import sqlite3, sys, json
+db_path = sys.argv[1]; user_id = sys.argv[2]; msgs_json = sys.argv[3]
+msgs = json.loads(msgs_json)
+conn = sqlite3.connect(db_path)
+for m in msgs:
+    conn.execute('INSERT INTO messages (chat_id, role, content, timestamp) VALUES (?,?,?,datetime("now"))', (user_id, m['role'], m['content']))
+conn.commit(); conn.close()
+`;
+  await runMemoryPython(insertScript, [userId, JSON.stringify(messages)]);
   return `Loaded session "${safeName}" — ${messages.length} messages restored.`;
 }
 

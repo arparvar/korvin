@@ -31,7 +31,6 @@ const { registerPatch } = require('../commands/patch');
 const { registerScan } = require('../commands/scan');
 
 // ── Dashboard (Phase B) ───────────────────────────────────────────────────────
-const { startDashboard } = require('../dashboard-api/server');
 
 function isAllowed(msg) {
   const allowedUsers = (process.env.KORVIN_ALLOWED_USERS || '')
@@ -728,10 +727,8 @@ function activateGoalHeartbeat() {
 (async () => {
   if (!telegramEnabled) {
     console.log('[Korvin] TELEGRAM_BOT_TOKEN not set - running in dashboard-only mode. Telegram bot disabled.');
-    await startDashboard();
-    console.log('[Korvin] Dashboard ready. Telegram disabled.');
+    console.log('[Korvin] Dashboard runs as a separate Python service (korvin-dashboard.service).');
   } else {
-    await startDashboard();
     activateStoredCronJobs();
     activateSecurityMonitor();
     activateDailyDigest();

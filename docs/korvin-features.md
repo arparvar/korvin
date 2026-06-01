@@ -23,7 +23,7 @@ Korvin is a self-hosted personal AI agent. Low-cost VPS (2 vCPU, 8 GB RAM). No c
 
 ### 🔍 Web Research
 **Trigger:** `research <topic>` or `/scan url <url>`  
-**What it does:** Searches DuckDuckGo, fetches real page content when `KORVIN_ADVANCED_SCRAPER=1` is set (robots.txt-compliant, CSS-targeted extraction), then synthesizes a structured report — Summary, Key Findings, Sources, Uncertainty. Without the flag it uses search snippets only.
+**What it does:** Searches DuckDuckGo, fetches real page content when `KORVIN_ADVANCED_SCRAPER=1` is set (robots.txt-compliant, CSS-targeted extraction), then synthesizes a structured report — Summary, Key Findings, Sources, Uncertainty. Without the flag it uses search snippets only. Raw results are passed through the research compressor (HTML strip, whitespace collapse, 8 000-character cap) before reaching the LLM, keeping token usage predictable.
 
 **Creative uses:**
 - `research DeepSeek R2 vs GPT-5 benchmarks` → Korvin reads actual benchmark pages and papers, not just headlines. You get a sourced comparison, not search results.
@@ -76,9 +76,9 @@ Korvin is a self-hosted personal AI agent. Low-cost VPS (2 vCPU, 8 GB RAM). No c
 ---
 
 ### ⚙️ Task Automator (Scheduler)
-**Status:** Planned — not yet implemented. Listed here as a design target.  
-**Trigger (planned):** `every <daily|hourly|weekly|Monday> do <action>` / `remind me to <action> every <schedule>`  
-**What it will do:** Save recurring tasks to `data/cron_jobs.json`. At the scheduled time, Korvin sends the result of the action in Telegram. Supported schedules: `daily` (9am), `hourly`, `weekly` (Monday 9am).
+**Status:** Live  
+**Trigger:** `every <daily|hourly|weekly|Monday> do <action>` / `remind me to <action> every <schedule>`  
+**What it does:** Saves recurring tasks to `data/cron_jobs.json`. At the scheduled time, Korvin runs the action and sends the result to Telegram. A noise filter silently drops trivial results (under 15 characters, empty responses, apology patterns) so only meaningful output reaches you.
 
 **Creative uses:**
 - `every daily do security report` → Korvin texts you disk usage, RAM, and service status every morning before you start work. You know if something crashed overnight without logging in.
@@ -163,6 +163,29 @@ Korvin is a self-hosted personal AI agent. Low-cost VPS (2 vCPU, 8 GB RAM). No c
 - Before starting a new topic, `/summarize` the current thread and `/save` the session. Clean slate, but the summary is a breadcrumb back to where you were.
 - `/search openssl` → track every CVE discussion you've had about a specific package across all past sessions.
 - Pair with `/save`: finish a work session with `/summarize`, note the digest in your own notes, then `/save project-name`. When you return with `/load project-name`, the full context is back — use your notes to reorient yourself quickly.
+
+---
+
+### 📅 Daily Digest
+**Trigger:** Automatic — fires every night at 23:00 (server time). No user action needed.  
+**What it does:** Reads the current chat ID registered by the security monitor. Calls `summarizeSession` with the active LLM to produce a short plain-text summary of the day's conversation. Appends the first 200 characters to `MEMORY.md` under today's date header. Delivers the full digest to Telegram.
+
+**Ways to use it:**
+- Wake up to a digest of everything Korvin did or discussed the day before — no log digging.
+- The digest entry in `MEMORY.md` creates a searchable journal of daily activity. Run `/search` against it weeks later.
+- Pair with `/goal` — the digest reminds you what you worked on; the goal heartbeat reminds you what matters.
+
+---
+
+### 🎯 Goal Heartbeat
+**Trigger:** `/goal [text]` sets a goal. Heartbeat fires automatically every 4 hours.  
+**What it does:** Saves the goal text and the chat ID. Every 4 hours, sends "Goal check-in: [your goal]" to Telegram. `/goal clear` removes the goal and stops the heartbeat.
+
+**Ways to use it:**
+- `/goal ship v1.2.0 today` → Korvin pings you three times during the workday to keep the priority visible.
+- Use for habit tracking: `/goal 30 minutes of reading before bed` → the check-in is a nudge, not a nag.
+- Combine with the daily digest: the digest shows what you worked on; the goal check-in shows what you intended to work on. Gaps are visible.
+- `/goal clear` when you hit the goal — clean slate for the next one.
 
 ---
 

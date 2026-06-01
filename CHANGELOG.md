@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.2.0] - 2026-05-31
+
+### Added
+- Daily digest cron — every night at 23:00 Korvin summarizes the day's session and delivers it to Telegram. The digest is also appended to MEMORY.md for long-term recall.
+- Goal heartbeat — `/goal [text]` saves a goal; Korvin sends a 4-hour nudge message to keep it top of mind. Chat ID is persisted so restarts survive.
+- Structured MEMORY.md — date-based section headers (`## YYYY-MM-DD`) are automatically prepended before each day's entries, making the file easy to audit by date.
+- Research compressor — strips HTML markup, collapses whitespace, and caps research payloads at 8 000 characters before LLM processing. Fewer tokens, same signal.
+- Cron triage noise filter — trivial cron results (under 15 characters, or apology/no-result patterns) are silently dropped. Only meaningful output reaches Telegram.
+
+---
+
 ## [1.1.0] - 2026-05-31
 
 ### Added

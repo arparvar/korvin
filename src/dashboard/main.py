@@ -175,9 +175,7 @@ def health_check():
     except Exception:
         pass
     try:
-        key = os.environ.get("LITELLM_MASTER_KEY", "")
-        resp = requests.get("http://127.0.0.1:4000/health",
-                           headers={"Authorization": f"Bearer {key}"}, timeout=3)
+        resp = requests.get("http://127.0.0.1:4000/health/readiness", timeout=3)
         health["litellm"] = "reachable" if resp.status_code < 500 else "error"
     except Exception:
         health["litellm"] = "unreachable"
@@ -285,7 +283,7 @@ def get_logs(lines: int = 100):
         formatted = []
         for raw_line in raw_lines[-lines:]:
             entry = json.loads(raw_line)
-            formatted.append(f"[{entry.get('timestamp','?')}] {entry.get('event','?')} chat={entry.get('chat_id','?')}")
+            formatted.append(f"[{entry.get('ts','?')}] {entry.get('event','?')} chat={entry.get('chat_id','?')}")
         return {"lines": formatted}
     except Exception as e:
         return {"lines": [], "error": str(e)}

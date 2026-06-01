@@ -238,14 +238,40 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
   const MAX_CONTEXT_TOKENS = 80000;
   if (estimateTokens(messages) > MAX_CONTEXT_TOKENS) {
     const recentHistory = history.slice(-20);
+    const oldHistory = history.slice(0, Math.max(0, history.length - 20));
+    let summaryNote = '[Earlier conversation history was truncated to stay within context limits.]';
+    if (oldHistory.length > 0) {
+      try {
+        const oldText = oldHistory.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+        const sumRes = await fetch(LITELLM_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getApiKey()}` },
+          body: JSON.stringify({
+            model: getActiveModel(),
+            messages: [
+              { role: 'system', content: 'Summarize this conversation history in 3-5 bullet points for context. Be concise.' },
+              { role: 'user', content: oldText }
+            ],
+            temperature: 0.1,
+            max_tokens: 256,
+            stream: false
+          })
+        });
+        if (sumRes.ok) {
+          const sumData = await sumRes.json();
+          summaryNote = '[Summary of earlier conversation: ' + sumData.choices[0].message.content.trim() + ']';
+        }
+      } catch (_) {}
+    }
     messages.length = 0;
     messages.push({ role: 'system', content: SYSTEM_PROMPT });
+    messages.push({ role: 'system', content: summaryNote });
     if (preferences.length > 0) {
-      messages.push({ role: 'system', content: "User preferences:\n" + preferences.map(p => `- ${p}`).join('\n') });
+      messages.push({ role: 'system', content: 'User preferences:\n' + preferences.map(p => `- ${p}`).join('\n') });
     }
     messages.push(...recentHistory.map(m => ({ ...m, content: sanitizeContent(m.content) })));
     messages.push({ role: 'user', content: sanitizeContent(safeMessage) });
-    console.warn('[Korvin] Context too long ??? truncated to last 20 messages.');
+    console.warn('[Korvin] Context too long — summarized old history.');
   }
 
   let response;
@@ -434,4 +460,47 @@ function getLastRateLimitHeaders() {
   return lastRateLimitHeaders;
 }
 
-module.exports = { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, getLastRateLimitHeaders, appendAuditLog, getApiKey };
+async function saveNamedSession(userId, name) {
+  const safeName = String(name).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+  if (!safeName) return 'Invalid session name. Use letters, numbers, underscores, hyphens only.';
+  const history = getHistory(userId);
+  if (history.length === 0) return 'Nothing to save — session is empty.';
+  const script = `
+import sqlite3, sys, json
+db = sys.argv[1]; user_id = sys.argv[2]; name = sys.argv[3]; data = sys.argv[4]
+conn = sqlite3.connect(db)
+conn.execute('CREATE TABLE IF NOT EXISTS named_sessions (chat_id TEXT, name TEXT, messages_json TEXT, timestamp TEXT, PRIMARY KEY (chat_id, name))')
+conn.execute('INSERT OR REPLACE INTO named_sessions VALUES (?,?,?,datetime("now"))', (user_id, name, data))
+conn.commit(); conn.close()
+`;
+  await runMemoryPython(script, [userId, safeName, JSON.stringify(history)]);
+  return `Session saved as "${safeName}" (${history.length} messages).`;
+}
+
+async function loadNamedSession(userId, name) {
+  const safeName = String(name).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+  if (!safeName) return 'Invalid session name.';
+  const script = `
+import sqlite3, sys, json
+db = sys.argv[1]; user_id = sys.argv[2]; name = sys.argv[3]
+conn = sqlite3.connect(db)
+try:
+    conn.execute('CREATE TABLE IF NOT EXISTS named_sessions (chat_id TEXT, name TEXT, messages_json TEXT, timestamp TEXT, PRIMARY KEY (chat_id, name))')
+    row = conn.execute('SELECT messages_json FROM named_sessions WHERE chat_id=? AND name=?', (user_id, name)).fetchone()
+    print(row[0] if row else 'null')
+except: print('null')
+finally: conn.close()
+`;
+  const raw = await runMemoryPython(script, [userId, safeName]);
+  const messages = JSON.parse(raw || 'null');
+  if (!messages) return `No saved session named "${safeName}".`;
+  await resetSession(userId);
+  const db = require('better-sqlite3')(DB_PATH);
+  for (const m of messages) {
+    db.prepare('INSERT INTO messages (chat_id, role, content, timestamp) VALUES (?,?,?,datetime("now"))').run(userId, m.role, m.content);
+  }
+  db.close();
+  return `Loaded session "${safeName}" — ${messages.length} messages restored.`;
+}
+
+module.exports = { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, saveNamedSession, loadNamedSession, getLastRateLimitHeaders, appendAuditLog, getApiKey };

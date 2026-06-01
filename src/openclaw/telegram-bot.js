@@ -7,7 +7,7 @@ require('../security/log-redact').installLogRedaction();
 
 const TelegramBot = require('node-telegram-bot-api');
 const { exec, execSync } = require('child_process');
-const { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession } = require('./gateway');
+const { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, saveNamedSession, loadNamedSession } = require('./gateway');
 const { researchTopic } = require('../skills/research');
 const fs = require('fs');
 const path = require('path');
@@ -410,6 +410,28 @@ bot.onText(/^\/search (.+)/, async (msg, match) => {
     await bot.sendMessage(msg.chat.id, lines.join('\n'));
   } catch (err) {
     await bot.sendMessage(msg.chat.id, `Search failed: ${err.message}`);
+  }
+});
+
+bot.onText(/^\/save\s+(\S+)/, async (msg, match) => {
+  if (!isAllowed(msg)) return bot.sendMessage(msg.chat.id, 'Access denied.');
+  const name = match[1].trim();
+  try {
+    const result = await saveNamedSession(String(msg.chat.id), name);
+    bot.sendMessage(msg.chat.id, result);
+  } catch (e) {
+    bot.sendMessage(msg.chat.id, 'Failed to save session: ' + e.message);
+  }
+});
+
+bot.onText(/^\/load\s+(\S+)/, async (msg, match) => {
+  if (!isAllowed(msg)) return bot.sendMessage(msg.chat.id, 'Access denied.');
+  const name = match[1].trim();
+  try {
+    const result = await loadNamedSession(String(msg.chat.id), name);
+    bot.sendMessage(msg.chat.id, result);
+  } catch (e) {
+    bot.sendMessage(msg.chat.id, 'Failed to load session: ' + e.message);
   }
 });
 

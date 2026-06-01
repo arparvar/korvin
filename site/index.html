@@ -15,6 +15,7 @@
       <a href="https://github.com/nosistech/korvin">GitHub</a>
       <a href="https://www.npmjs.com/package/@nosistech/korvin">npm</a>
       <a href="https://github.com/nosistech/korvin/blob/main/quickstart.md">Docs</a>
+      <a href="#skills">Skills</a>
       <button class="theme-toggle" id="themeToggle" type="button">Light</button>
     </nav>
   </header>
@@ -47,10 +48,10 @@ Memory:  SQLite persistent</code></pre>
       </div>
       <div class="grid">
         <article class="card"><h3>Telegram interface</h3><p>Send text or voice messages. Korvin replies in text or speaks back.</p></article>
-        <article class="card"><h3>Voice - Whisper STT</h3><p>Speech-to-text via Whisper tiny.en (~2s on a $5 VPS). Optional TTS can be added when needed.</p></article>
+        <article class="card"><h3>Voice &mdash; STT + TTS included</h3><p>Send a voice message, get a spoken reply. Faster-Whisper tiny.en for transcription (~95 MB RAM). Kokoro TTS for voice responses. Both run on a $5 VPS.</p></article>
         <article class="card"><h3>Persistent memory</h3><p>Every conversation stored in SQLite. Sliding window keeps the agent alive forever.</p></article>
         <article class="card"><h3>Model switching</h3><p>Tap a model in the dashboard. No restart. DeepSeek V4, Gemini Flash, Claude, or any Ollama model.</p></article>
-        <article class="card"><h3>5 skills: research, scheduling, drafting, security, inbox</h3><p>Web research, scheduled jobs, structured document drafts, VPS security reporting, and inbox triage are wired through Telegram and dashboard chat.</p></article>
+        <article class="card"><h3>6 skills included</h3><p>Web research, task scheduling, document drafting, VPS security reports, dependency scanning, and YouTube transcription &mdash; wired to Telegram and dashboard chat.</p></article>
         <article class="card"><h3>Rate limited & OWASP reviewed</h3><p>Per-user rate limiting (20 req/60s). OWASP LLM Top 10 2025 reviewed. Prompt injection blocking. Output secret redaction. Automated smoke test included.</p></article>
       </div>
     </section>
@@ -80,6 +81,168 @@ Memory:  SQLite persistent</code></pre>
       </div>
       <p>Start with API keys. Once running, swap in any LiteLLM-compatible model — including local Ollama — by editing one config file. No code changes, no rebuilds.</p>
     </section>
+    <section class="section" id="addons">
+      <div class="section-heading">
+        <p class="eyebrow">Add-ons</p>
+        <h2>Optional upgrades after install.</h2>
+        <p>Korvin runs fully out of the box. These options are available when you need more.</p>
+      </div>
+      <div class="addon-grid">
+        <article class="addon-card">
+          <div class="addon-label">STT quality upgrade</div>
+          <h3>distil-large-v3</h3>
+          <p>Switch from tiny.en to distil-large-v3 for significantly higher transcription accuracy. Set in the dashboard under Voice settings. Requires 4 GB+ RAM &mdash; not suitable for a $5 VPS.</p>
+          <div class="addon-tag">Dashboard setting &mdash; no reinstall</div>
+        </article>
+        <article class="addon-card">
+          <div class="addon-label">Model swap</div>
+          <h3>Any LiteLLM-compatible model</h3>
+          <p>Korvin routes through LiteLLM. Swap in Claude, GPT-4o, Mistral, or a local Ollama model by editing one config file. No code changes. Switch back in the dashboard.</p>
+          <div class="addon-tag">Edit litellm_config.yaml &mdash; restart LiteLLM</div>
+        </article>
+        <article class="addon-card">
+          <div class="addon-label">Coming soon</div>
+          <h3>Inbox summarizer</h3>
+          <p>Gmail and Outlook integration via OAuth. Categorizes messages by urgency and drafts reply suggestions. Not yet available in the current release.</p>
+          <div class="addon-tag">Roadmap</div>
+        </article>
+      </div>
+    </section>
+    <section class="section" id="skills">
+      <div class="section-heading">
+        <p class="eyebrow">Skills</p>
+        <h2>Six skills. Unlimited ways to use them.</h2>
+        <p>Every skill works through Telegram chat &mdash; just describe what you need. New skills can be added without touching the core.</p>
+      </div>
+      <div class="skills-list">
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">Research [topic]</span>
+            <span class="skill-name">Web Research</span>
+          </div>
+          <p>Searches the web via DuckDuckGo and synthesizes a structured report with key findings and sources. No API key required &mdash; runs entirely through Korvin.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Try it</p>
+            <ul>
+              <li>"Research the latest PostgreSQL 17 features"</li>
+              <li>"Research competitors to my SaaS idea: [describe it]"</li>
+              <li>"Research side effects of [medication] and summarize in plain English"</li>
+            </ul>
+          </div>
+        </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">every [schedule] do [action]</span>
+            <span class="skill-name">Task Scheduling</span>
+          </div>
+          <p>Creates cron jobs that run automatically and message you the result. Supports daily, hourly, weekly, and day-of-week schedules.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Try it</p>
+            <ul>
+              <li>"Every morning remind me to review my priorities"</li>
+              <li>"Every Monday research the top AI news from the past week"</li>
+              <li>"Remind me to drink water every 2 hours"</li>
+            </ul>
+          </div>
+        </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">write a [type] about [topic]</span>
+            <span class="skill-name">Document Drafting</span>
+          </div>
+          <p>Generates structured documents &mdash; proposals, reports, emails, SOPs, job descriptions. Output includes section headers and placeholder fields ready to fill in.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Try it</p>
+            <ul>
+              <li>"Write a proposal about migrating our app to a VPS"</li>
+              <li>"Draft a client email explaining a two-week delay"</li>
+              <li>"Write a job posting for a backend developer with Go experience"</li>
+            </ul>
+          </div>
+        </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">/security</span>
+            <span class="skill-name">Security Monitor</span>
+          </div>
+          <p>Runs a live VPS health report: CPU, RAM, disk, uptime, and status of all Korvin services. Detects and reports anomalies in seconds.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Try it</p>
+            <ul>
+              <li>"/security" &mdash; instant health snapshot</li>
+              <li>"every morning run /security" &mdash; daily automated health digest</li>
+              <li>After a deploy: run /security to confirm all services restarted cleanly</li>
+            </ul>
+          </div>
+        </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">/scan deps</span>
+            <span class="skill-name">Dependency Scan</span>
+          </div>
+          <p>Reads package.json and requirements.txt and reports dependency metadata &mdash; names, versions, and known issues. Zero-execution: never invokes npm, pip, or any package manager.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Try it</p>
+            <ul>
+              <li>"/scan deps" &mdash; full dependency report</li>
+              <li>Run before a production deploy to catch stale or flagged packages</li>
+              <li>Schedule weekly: "every Monday run /scan deps"</li>
+            </ul>
+          </div>
+        </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">/youtube [url]</span>
+            <span class="skill-name">YouTube Transcription</span>
+          </div>
+          <p>Transcribes any YouTube video and returns the full text. Paste a YouTube URL in chat and Korvin handles it automatically &mdash; no need for the /youtube prefix.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Try it</p>
+            <ul>
+              <li>Paste a YouTube URL and ask "summarize this"</li>
+              <li>"Transcribe this lecture and pull out the key points: [url]"</li>
+              <li>Research a topic then transcribe a related video for deeper context</li>
+            </ul>
+          </div>
+        </article>
+      </div>
+    </section>
+    <section class="section" id="custom-skills">
+      <div class="section-heading">
+        <p class="eyebrow">Custom skills</p>
+        <h2>Build your own skill in two files.</h2>
+        <p>Korvin ships with a plugin system. Drop a directory into <code>skills/</code>, define a trigger regex, and Korvin auto-loads it on the next restart &mdash; no changes to the core required.</p>
+      </div>
+      <div class="split">
+        <div>
+          <h3>How it works</h3>
+          <p>Each skill is a directory with two files: a <code>skill.json</code> manifest and a <code>handler.js</code> module. The manifest defines the trigger pattern and permission level. The handler receives the matched message and returns a string response.</p>
+          <ul class="check-list" style="margin-top:20px">
+            <li>No registration needed &mdash; auto-discovered at startup</li>
+            <li>Three permission levels: read-only, network-read, local-status</li>
+            <li>Path traversal blocked &mdash; handler must stay inside skill directory</li>
+            <li>Errors are caught and reported &mdash; bad handlers don't crash the agent</li>
+          </ul>
+        </div>
+        <div class="terminal-card">
+          <div class="terminal-top"><span></span><span></span><span></span></div>
+          <pre><code>// skills/my-skill/skill.json
+{
+  "name": "my-skill",
+  "description": "What this skill does",
+  "trigger": "^my trigger (.+)",
+  "permission": "read-only",
+  "handler": "./handler.js"
+}
+
+// skills/my-skill/handler.js
+async function run(message, match) {
+  return "You said: " + match[1];
+}
+module.exports = { run };</code></pre>
+        </div>
+      </div>
+    </section>
     <section class="section">
       <div class="section-heading">
         <p class="eyebrow">Telegram commands</p>
@@ -87,15 +250,15 @@ Memory:  SQLite persistent</code></pre>
       </div>
       <div class="terminal-card" style="max-width:640px;margin:0 auto">
         <div class="terminal-top"><span></span><span></span><span></span></div>
-        <pre><code>Research [topic]          - web search + summary
-Schedule [task] at [time] - cron job, runs automatically
-Draft [document type]     - structured document output
-/security                 - VPS security report
-/inbox                    - message triage summary
-/scan [domain]            - VirusTotal check
-/status                   - live VPS health
-/brief                    - toggle one-sentence mode
-/log                      - recent activity</code></pre>
+        <pre><code>Research [topic]          &mdash; web search + summary report
+every morning do [task]   &mdash; scheduled cron job
+write a [doc type]        &mdash; structured document draft
+/security                 &mdash; live VPS security report
+/scan deps                &mdash; dependency metadata scan
+/youtube [url]            &mdash; transcribe any YouTube video
+/status                   &mdash; agent + service health
+/brief                    &mdash; toggle concise mode on/off
+/log                      &mdash; recent activity log</code></pre>
       </div>
     </section>
     <section class="section">
@@ -112,6 +275,7 @@ Draft [document type]     - structured document output
       <p class="eyebrow">Roadmap</p>
       <h2>What is still being built.</h2>
       <ul>
+        <li>Inbox summarizer (Gmail/Outlook OAuth)</li>
         <li>WhatsApp, Discord, Signal channels</li>
         <li>RAG over local documents</li>
         <li>Wake-word voice client</li>

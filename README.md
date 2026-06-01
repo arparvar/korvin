@@ -29,6 +29,11 @@ Your data stays on your machine. Your keys stay in your env file. If the agent m
 | Session summarization — `/summarize` | ✅ Live |
 | Memory search — `/search` | ✅ Live |
 | Confirmation gate — HIGH-risk commands require `/confirm` | ✅ Live |
+| Daily digest — automatic 23:00 session summary → Telegram + MEMORY.md | ✅ Live |
+| Goal heartbeat — `/goal` saves a target; 4-hour nudge in Telegram | ✅ Live |
+| Structured MEMORY.md — date-based section headers per day | ✅ Live |
+| Research compressor — HTML strip + 8 000-char cap on research payloads | ✅ Live |
+| Cron triage noise filter — silences trivial cron outputs | ✅ Live |
 | FastAPI dashboard — chat, memory, model switcher, logs | ✅ Live |
 | Model switcher — swap models from dashboard, no restart | ✅ Live |
 | Killswitch — pause agent from dashboard | ✅ Live |
@@ -320,6 +325,8 @@ Every conversation is stored in SQLite. Three strategies control what happens wh
 | `/rule remove <n>` | — | Remove a rule by number |
 | `/summarize` | — | Summarize the current session |
 | `/search <query>` | — | Search conversation history |
+| `/goal [text]` | — | Save a goal; Korvin sends a 4-hour nudge reminder |
+| `/goal clear` | — | Remove the saved goal and stop heartbeat messages |
 | `/help` | — | Command menu |
 
 **HIGH-risk gate:** Every HIGH-risk command requires explicit `/confirm <hash>` before executing. Pending actions expire after 5 minutes. The agent cannot bypass this gate — it is enforced in `src/middleware/confirmation-gate.js`, not in the system prompt.
@@ -496,6 +503,9 @@ korvin/
 - [x] LiteLLM proxy — model-agnostic routing
 - [x] Cloudflare Tunnel + Access integration
 - [x] Kokoro TTS — local voice replies
+- [x] Daily digest — automatic nightly session summary
+- [x] Goal heartbeat — `/goal` with 4-hour nudge
+- [x] Cron task scheduling — natural language cron jobs via Telegram
 - [ ] WhatsApp channel
 - [ ] RAG over local documents
 - [ ] Multi-agent task delegation

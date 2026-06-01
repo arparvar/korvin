@@ -21,7 +21,7 @@
   <main>
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Open-source. Self-hosted. No lock-in. v1.0.0</p>
+        <p class="eyebrow">Open-source. Self-hosted. No lock-in. v1.2.0</p>
         <h1>Self-hosted AI agents for entry-level machines.</h1>
         <p class="hero-subtitle">Voice-first. Memory-persistent. Model-agnostic. No lock-in.</p>
         <p class="hero-text">KORVIN is a personal AI agent that runs on your own machine. Start with API keys. Graduate to fully self-hosted local models. Your data never leaves your infrastructure.</p>
@@ -49,7 +49,7 @@ Memory:  SQLite persistent</code></pre>
         <article class="card"><h3>Voice — STT + TTS included</h3><p>Send a voice message, get a spoken reply. Faster-Whisper tiny.en transcribes speech (~95 MB RAM). Kokoro TTS (bm_lewis) generates voice replies. Both installed automatically — no extra setup.</p></article>
         <article class="card"><h3>Persistent memory</h3><p>Every conversation stored in SQLite. Sliding window keeps the agent alive forever.</p></article>
         <article class="card"><h3>Model switching</h3><p>Tap a model in the dashboard. No restart. DeepSeek V4, Gemini Flash, Claude, or any Ollama model.</p></article>
-        <article class="card"><h3>9 skills included</h3><p>Web research, YouTube transcription, dependency scanning, VirusTotal security scan, CVE patch research, named sessions, persistent rules, session summarization, and memory search &mdash; all wired to Telegram and dashboard chat.</p></article>
+        <article class="card"><h3>11 skills included</h3><p>Web research, YouTube transcription, dependency scanning, VirusTotal security scan, CVE patch research, named sessions, persistent rules, session summarization, memory search, daily digest, and goal heartbeat &mdash; all wired to Telegram and dashboard chat.</p></article>
         <article class="card"><h3>Named sessions &amp; persistent rules</h3><p>/save and /load switch conversation context by name. /rule add stores your preferences &mdash; response style, length, format &mdash; and every reply respects them automatically.</p></article>
         <article class="card"><h3>Rate limited & OWASP reviewed</h3><p>Per-user rate limiting (20 req/60s). OWASP LLM Top 10 2025 reviewed. Prompt injection blocking. Output secret redaction. Automated smoke test included.</p></article>
       </div>
@@ -112,7 +112,7 @@ Memory:  SQLite persistent</code></pre>
     <section class="section" id="skills">
       <div class="section-heading">
         <p class="eyebrow">Skills</p>
-        <h2>Nine skills. Unlimited ways to use them.</h2>
+        <h2>Eleven skills. Unlimited ways to use them.</h2>
         <p>Every skill works through Telegram and dashboard chat &mdash; just describe what you need. New skills can be added without touching the core.</p>
       </div>
       <div class="skills-list">
@@ -251,6 +251,36 @@ Memory:  SQLite persistent</code></pre>
             </ul>
           </div>
         </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">Automatic &mdash; 23:00 daily</span>
+            <span class="skill-name">Daily Digest</span>
+          </div>
+          <p>Every night at 23:00 Korvin summarizes the day's session and delivers it to Telegram. The digest is also appended to MEMORY.md under today's date header for long-term recall.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Ways to use it</p>
+            <ul>
+              <li>Wake up to a plain-text summary of everything Korvin discussed or executed the day before</li>
+              <li>Each digest entry in MEMORY.md becomes a searchable journal &mdash; "/search [topic]" finds it weeks later</li>
+              <li>Pair with Goal Heartbeat &mdash; digest shows what you did, heartbeat shows what you meant to do</li>
+            </ul>
+          </div>
+        </article>
+        <article class="skill-card">
+          <div class="skill-header">
+            <span class="skill-trigger">/goal [text]</span>
+            <span class="skill-name">Goal Heartbeat</span>
+          </div>
+          <p>Save a goal and Korvin sends a check-in message every 4 hours. The chat ID is persisted so restarts don't break the heartbeat. "/goal clear" stops it.</p>
+          <div class="skill-examples">
+            <p class="examples-label">Ways to use it</p>
+            <ul>
+              <li>"/goal ship the release today" &mdash; Korvin pings you three times during the workday</li>
+              <li>Habit nudge: "/goal 30 minutes of reading before bed" &mdash; gentle reminder, no app needed</li>
+              <li>"/goal clear" the moment you hit it &mdash; clean slate for the next priority</li>
+            </ul>
+          </div>
+        </article>
       </div>
     </section>
     <section class="section">
@@ -346,6 +376,8 @@ module.exports = { run };</code></pre>
 /load [name]              &mdash; restore a named session
 /rule add [preference]    &mdash; save a persistent rule
 /rule list                &mdash; view your active rules
+/goal [text]              &mdash; set a goal; 4-hour check-in nudge
+/goal clear               &mdash; remove goal and stop heartbeat
 /brief                    &mdash; toggle concise mode on/off
 /summarize                &mdash; summarize the current session
 /search [query]           &mdash; search your message history
@@ -367,7 +399,6 @@ module.exports = { run };</code></pre>
       <p class="eyebrow">Roadmap</p>
       <h2>What is still being built.</h2>
       <ul>
-        <li>Task scheduling &mdash; create cron jobs from natural language</li>
         <li>Document drafting &mdash; proposals, SOPs, reports from chat</li>
         <li>Inbox summarizer (Gmail/Outlook OAuth)</li>
         <li>WhatsApp, Discord, Signal channels</li>
@@ -378,7 +409,7 @@ module.exports = { run };</code></pre>
     </section>
   </main>
   <footer class="footer">
-    <p>MIT License. v1.0.0. Built by <a href="https://nosistech.com">Carlos Paredes, NosisTech LLC</a>.</p>
+    <p>MIT License. v1.2.0. Built by <a href="https://nosistech.com">Carlos Paredes, NosisTech LLC</a>.</p>
     <div><a href="https://nosistech.com">NosisTech</a><a href="https://github.com/nosistech/korvin">GitHub</a></div>
   </footer>
 <script>const button=document.getElementById("themeToggle");const saved=localStorage.getItem("korvin-theme");if(saved==="light"){document.body.classList.add("light");button.textContent="Dark";}button.addEventListener("click",()=>{document.body.classList.toggle("light");const isLight=document.body.classList.contains("light");button.textContent=isLight?"Dark":"Light";localStorage.setItem("korvin-theme",isLight?"light":"dark");});</script>

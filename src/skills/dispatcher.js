@@ -12,6 +12,19 @@ if (manifestSkills.length > 0) {
 const { wrapExternalContent } = require('../security/external-content');
 const { transcribeYoutube } = require('./youtube');
 
+function safeParseArg(str) {
+  if (!str) return str;
+  try {
+    return JSON.parse(str);
+  } catch (_) {
+    try {
+      return JSON.parse(str.replace(/,\s*([}\]])/g, ''));
+    } catch (_) {
+      return str;
+    }
+  }
+}
+
 const ROOT = path.resolve(__dirname, '..', '..');
 const DATA_DIR = path.join(ROOT, 'data');
 const CRON_JOBS_PATH = path.join(DATA_DIR, 'cron_jobs.json');
@@ -201,7 +214,7 @@ async function dispatchSkill(text, chatId = 'default') {
   }
 
   let match = message.match(/^research\s+(.+)/i);
-  if (match) return await runWebResearch(match[1].trim());
+  if (match) return await runWebResearch(safeParseArg(match[1].trim()));
 
   match = message.match(/^every\s+(.+?)\s+(do|remind me to)\s+(.+)/i);
   if (match) return saveScheduledTask(match[1].trim(), match[3].trim());
@@ -210,7 +223,7 @@ async function dispatchSkill(text, chatId = 'default') {
   if (match) return saveScheduledTask(match[2].trim(), match[1].trim());
 
   match = message.match(/^write (?:a|an)\s+(.+?)\s+(?:about|on|for|to)\s+(.+)/i);
-  if (match) return await draftDocument(match[1].trim(), match[2].trim());
+  if (match) return await draftDocument(safeParseArg(match[1].trim()), safeParseArg(match[2].trim()));
 
   if (/^(?:\/security|security\s+report|check\s+(?:vps|security|services?))/i.test(message)) {
     const result = await executeSkill('security-monitor', async () => {

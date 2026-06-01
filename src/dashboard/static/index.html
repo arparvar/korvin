@@ -203,6 +203,8 @@
     <span class="skill-chip">🛡️ security-monitor</span>
     <span class="skill-chip">📺 youtube-transcriber</span>
     <span class="skill-chip">🔒 dep-scan</span>
+    <span class="skill-chip">📅 daily-digest</span>
+    <span class="skill-chip">🎯 goal-heartbeat</span>
     <span class="skill-chip" style="opacity:0.5">📬 inbox-summarizer (pending)</span>
     <p style="margin-top:14px;font-size:0.83rem;color:var(--text3);font-style:italic">Use <code>/skills list</code> in Telegram for the full command reference.</p>
   </div>
@@ -521,7 +523,7 @@ function showPage(id, btn) {
 // ── System ─────────────────────────────────────────────────────────
 async function loadSystem() {
   try {
-    const r = await fetch('/api/system');
+    const r = await fetch('/api/system', { headers: AUTH });
     const d = await r.json();
     document.getElementById('s-cpu').textContent = d.cpu_pct ? d.cpu_pct + '%' : '—';
     document.getElementById('s-mem-used').textContent = d.mem_used_mb || '—';
@@ -568,7 +570,7 @@ async function loadHealth() {
 
 async function loadVoiceStatus() {
   try {
-    const r = await fetch('/api/voice/status');
+    const r = await fetch('/api/voice/status', { headers: AUTH });
     const d = await r.json();
     const homeLabel = document.getElementById('home-voice-label');
     const sttLabel = document.getElementById('settings-stt-label');
@@ -588,7 +590,7 @@ async function loadVoiceStatus() {
 // ── Token Usage ────────────────────────────────────────────────────
 async function loadTokenUsage() {
   try {
-    const r = await fetch('/api/token-usage');
+    const r = await fetch('/api/token-usage', { headers: AUTH });
     const d = await r.json();
     document.getElementById('token-usage').innerHTML = `
       <div class="status-row" style="margin-bottom:4px">Today: <strong>${d.today.tokens.toLocaleString()}</strong> tokens · ~<strong>$${d.today.cost.toFixed(4)}</strong></div>
@@ -600,7 +602,7 @@ async function loadTokenUsage() {
 // ── Token Rates ────────────────────────────────────────────────────
 async function loadTokenRates() {
   try {
-    const r = await fetch('/api/token-rates');
+    const r = await fetch('/api/token-rates', { headers: AUTH });
     const d = await r.json();
     const labels = {
       'deepseek-v4-pro': 'DeepSeek V4 Pro',
@@ -647,7 +649,7 @@ async function saveRates() {
 // ── Chat Timeout ───────────────────────────────────────────────────
 async function loadTimeout() {
   try {
-    const r = await fetch('/api/chat-timeout');
+    const r = await fetch('/api/chat-timeout', { headers: AUTH });
     const d = await r.json();
     document.getElementById('chat-timeout-input').value = d.timeout;
   } catch(e) { /* ignore */ }
@@ -678,7 +680,7 @@ async function saveTimeout() {
 // ── Token Warning Threshold ────────────────────────────────────────
 async function loadWarning() {
   try {
-    const r = await fetch('/api/token-warning-threshold');
+    const r = await fetch('/api/token-warning-threshold', { headers: AUTH });
     const d = await r.json();
     document.getElementById('token-warning-input').value = d.threshold;
   } catch(e) { /* ignore */ }
@@ -709,7 +711,7 @@ async function saveWarning() {
 // ── Active Model Status ────────────────────────────────────────────
 async function loadActiveModelStatus() {
   try {
-    const r = await fetch('/api/active-model');
+    const r = await fetch('/api/active-model', { headers: AUTH });
     const d = await r.json();
     const el = document.getElementById('home-model');
     if (el) el.textContent = d.active_model;
@@ -719,7 +721,7 @@ async function loadActiveModelStatus() {
 // ── Context Window ─────────────────────────────────────────────────
 async function loadContextWindow(targetId) {
   try {
-    const r = await fetch(`/api/memory/context-window?limit=${cwLimit}&max_tokens=${configMaxTokens}`);
+    const r = await fetch(`/api/memory/context-window?limit=${cwLimit}&max_tokens=${configMaxTokens}`, { headers: AUTH });
     const d = await r.json();
     const pct = d.pct_messages || 0;
     const status = d.status || 'ok';
@@ -741,7 +743,7 @@ async function loadContextWindow(targetId) {
 // ── Memory Config ──────────────────────────────────────────────────
 async function loadMemoryConfig() {
   try {
-    const r = await fetch('/api/memory/limit');
+    const r = await fetch('/api/memory/limit', { headers: AUTH });
     const d = await r.json();
     cwLimit = d.memory_limit;
     configMaxTokens = d.max_tokens;
@@ -831,7 +833,7 @@ async function pruneNow() {
 // ── Conversation History ───────────────────────────────────────────
 async function loadMemory() {
   try {
-    const r = await fetch('/api/memory/recent?limit=30');
+    const r = await fetch('/api/memory/recent?limit=30', { headers: AUTH });
     const d = await r.json();
     allMessages = d.messages || [];
     renderMessages(allMessages);
@@ -900,7 +902,7 @@ async function loadLogs() {
 // ── Kill Switch ────────────────────────────────────────────────────
 async function loadKillswitch() {
   try {
-    const r = await fetch('/api/killswitch');
+    const r = await fetch('/api/killswitch', { headers: AUTH });
     const d = await r.json();
     killActive = d.killswitch;
     renderKillswitch();
@@ -940,7 +942,7 @@ async function toggleKill() {
 // ── Model Switcher ─────────────────────────────────────────────────
 async function loadModels() {
   try {
-    const r = await fetch('/api/models');
+    const r = await fetch('/api/models', { headers: AUTH });
     const d = await r.json();
     modelList = d.models;
     renderModelButtons(d.models, d.active);

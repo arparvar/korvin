@@ -138,7 +138,7 @@ def root():
 
 @app.get("/api/status", dependencies=[Depends(require_key)])
 def status():
-    return {"korvin": "online", "version": "0.1.1", "memory": "sqlite"}
+    return {"korvin": "online", "version": "1.2.0", "memory": "sqlite"}
 
 @app.get("/api/voice/status", dependencies=[Depends(require_key)])
 def voice_status():

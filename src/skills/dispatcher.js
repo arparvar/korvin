@@ -212,7 +212,7 @@ async function dispatchSkill(text, chatId = 'default') {
   match = message.match(/^write (?:a|an)\s+(.+?)\s+(?:about|on|for|to)\s+(.+)/i);
   if (match) return await draftDocument(match[1].trim(), match[2].trim());
 
-  if (/^(?:security\s+report|check\s+(?:vps|security|services?))/i.test(message)) {
+  if (/^(?:\/security|security\s+report|check\s+(?:vps|security|services?))/i.test(message)) {
     const result = await executeSkill('security-monitor', async () => {
       const report = await getSecurityReport(chatId);
       return SkillResult.success(report, { chatId: String(chatId) });
@@ -240,6 +240,11 @@ async function dispatchSkill(text, chatId = 'default') {
       '??? /patch <package> ??? check if a package has available updates',
       '  /youtube <url> — transcribe a YouTube video',
     ].join('\n');
+  }
+
+  if (/^\/scan\s+deps?/i.test(message)) {
+    const { depScan } = require('./dep-scan');
+    return depScan();
   }
 
   match = message.match(/^\/scan\s+url\s+(\S+)/i);

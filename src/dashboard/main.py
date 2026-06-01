@@ -537,7 +537,20 @@ def chat(body: ChatRequest):
         timeout=30
     )
     if result.stdout.strip():
-        return JSONResponse({"reply": result.stdout.strip()})
+        skill_reply = result.stdout.strip()
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            conn.execute(
+                'INSERT INTO messages (chat_id, role, content, source, timestamp) VALUES (?,?,?,?,?)',
+                (chat_id, 'user', message_text, 'dashboard', datetime.utcnow().isoformat()))
+            conn.execute(
+                'INSERT INTO messages (chat_id, role, content, source, timestamp) VALUES (?,?,?,?,?)',
+                (chat_id, 'assistant', skill_reply, 'dashboard', datetime.utcnow().isoformat()))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+        return JSONResponse({'reply': skill_reply})
 
     _active = _read_active_model()
     _model_name = MODEL_LABELS.get(_active, _active)

@@ -1,18 +1,12 @@
 import warnings
 warnings.filterwarnings('ignore')
 
-import whisper
 import soundfile as sf
 import numpy as np
 from kokoro import KPipeline
 import os
 
-MODEL = whisper.load_model("base")
 TTS = KPipeline(lang_code='b', repo_id='hexgrad/Kokoro-82M')   # explicit repo silences the warning
-
-def transcribe(audio_path):
-    result = MODEL.transcribe(audio_path, fp16=False)
-    return result["text"].strip()
 
 def generate_speech(text, output_path, voice="bm_lewis"):
     chunks = []

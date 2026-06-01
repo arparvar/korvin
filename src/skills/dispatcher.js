@@ -10,6 +10,7 @@ if (manifestSkills.length > 0) {
   console.error(`[Skills] Loaded ${manifestSkills.length} operator skill(s):`, manifestSkills.map(s => s.name));
 }
 const { wrapExternalContent } = require('../security/external-content');
+const { transcribeYoutube } = require('./youtube');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const DATA_DIR = path.join(ROOT, 'data');
@@ -237,6 +238,7 @@ async function dispatchSkill(text, chatId = 'default') {
       '??? /scan url <url> ??? research and summarize a URL',
       '  /scan deps ? list Node.js and Python dependencies (read-only)',
       '??? /patch <package> ??? check if a package has available updates',
+      '  /youtube <url> — transcribe a YouTube video',
     ].join('\n');
   }
 
@@ -251,6 +253,20 @@ async function dispatchSkill(text, chatId = 'default') {
       return `Update available for ${pkg}:\n${result}\n\nTo apply: sudo apt-get install -y ${pkg}`;
     }
     return `${pkg} appears up to date ??? no pending upgrade found in apt.`;
+  }
+
+  // /youtube <url> or "youtube transcribe <url>"
+  match = message.match(/^(?:\/youtube|youtube\s+transcribe)\s+(\S+)/i);
+  if (match) {
+    const transcript = await transcribeYoutube(match[1].trim());
+    return `Transcript:\n${transcript}`;
+  }
+
+  // Bare YouTube URL anywhere in the message
+  const bareYtMatch = message.match(/https?:\/\/(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/);
+  if (bareYtMatch) {
+    const transcript = await transcribeYoutube(bareYtMatch[0]);
+    return `Transcript:\n${transcript}`;
   }
 
   return null;

@@ -1,4 +1,5 @@
 'use strict';
+// SECURITY INVARIANT: dep-scan reads manifest files only. Never invoke npm, pip, or package managers.
 
 const fs = require('fs');
 const path = require('path');
@@ -41,4 +42,19 @@ function depScan() {
   }
   return out.join('\n');
 }
-module.exports = { depScan };
+function verifyZeroExecution() {
+  const src = fs.readFileSync(__filename, 'utf8');
+  const forbidden = ['exec' + 'Sync(', 'sp' + 'awn(', 'exec' + 'File(', 'child' + '_process'];
+  const violations = forbidden.filter(f => src.includes(f));
+  if (violations.length) {
+    throw new Error(`dep-scan zero-execution violation: ${violations.join(', ')}`);
+  }
+  return true;
+}
+module.exports = { depScan, verifyZeroExecution };
+
+if (require.main === module) {
+  verifyZeroExecution();
+  console.log('Zero-execution invariant confirmed');
+  console.log(depScan());
+}

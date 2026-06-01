@@ -1,6 +1,18 @@
 import sqlite3, os, json, datetime, time
 import urllib.request
 
+MEMORY_BACKEND = os.environ.get('KORVIN_MEMORY_BACKEND', 'sqlite').strip()
+_CHROMA_AVAILABLE = False
+_chroma_client = None
+_chroma_collection = None
+
+if MEMORY_BACKEND == 'chromadb':
+    try:
+        import chromadb
+        _CHROMA_AVAILABLE = True
+    except ImportError:
+        pass
+
 DB_PATH = os.path.join(os.path.dirname(__file__), '../../data/memory.db')
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), '../../config.json')
 
@@ -10,6 +22,17 @@ def _load_config():
             return json.load(f)
     except Exception:
         return {}
+
+def _get_chroma_collection():
+    global _chroma_client, _chroma_collection
+    if not _CHROMA_AVAILABLE:
+        return None
+    if _chroma_collection is None:
+        db_dir = os.path.join(os.path.dirname(DB_PATH), 'chroma')
+        os.makedirs(db_dir, exist_ok=True)
+        _chroma_client = chromadb.PersistentClient(path=db_dir)
+        _chroma_collection = _chroma_client.get_or_create_collection('korvin_memory')
+    return _chroma_collection
 
 def _conn():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -129,6 +152,18 @@ def save(chat_id, role, content, source=None):
                 (str(chat_id),)
             )
             c.commit()
+    if MEMORY_BACKEND == 'chromadb':
+        try:
+            col = _get_chroma_collection()
+            if col is not None:
+                doc_id = f"{chat_id}_{datetime.datetime.now(datetime.timezone.utc).isoformat()}_{role}"
+                col.add(
+                    documents=[content],
+                    metadatas=[{"chat_id": str(chat_id), "role": role}],
+                    ids=[doc_id]
+                )
+        except Exception:
+            pass
     c.close()
 
 def get_history(chat_id, limit=10):
@@ -151,6 +186,22 @@ def clear(chat_id):
     c.execute('DELETE FROM messages WHERE chat_id=?', (str(chat_id),))
     c.commit()
     c.close()
+
+def search_similar(chat_id, query, k=5):
+    col = _get_chroma_collection()
+    if col is None:
+        return []
+    try:
+        results = col.query(
+            query_texts=[query],
+            n_results=k,
+            where={"chat_id": str(chat_id)}
+        )
+        docs = results.get('documents', [[]])[0]
+        metas = results.get('metadatas', [[]])[0]
+        return [{"content": d, "role": m.get("role", "unknown")} for d, m in zip(docs, metas)]
+    except Exception:
+        return []
 
 if __name__ == '__main__':
     save('test123', 'user', 'Hello Korvin')

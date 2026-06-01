@@ -6,7 +6,7 @@
 
 ---
 
-KORVIN is an open-source personal AI agent you install on your own server. It runs on a $5/month VPS, listens and responds by voice through Telegram, remembers every conversation in a local SQLite database, and routes all LLM calls through LiteLLM so you can swap models in one tap — no restart, no config edit.
+KORVIN is an open-source personal AI agent you install on your own server. It runs on a low-cost VPS (2 vCPU, 8 GB RAM is enough for the full stack including voice), or directly on your Windows or Linux machine. It listens and responds by voice through Telegram, remembers every conversation in a local SQLite database, and routes all LLM calls through LiteLLM so you can swap models in one tap — no restart, no config edit.
 
 Your data stays on your machine. Your keys stay in your env file. If the agent misbehaves you flip a killswitch from the dashboard and it stops accepting messages immediately.
 
@@ -102,10 +102,12 @@ KORVIN: Morning brief — 2026-05-31
 
 ## Install
 
-KORVIN runs on any Linux server with Node.js 20+ and Python 3.10+. A $5/month VPS (2 vCPU, 8 GB RAM) is enough for the full stack.
+KORVIN runs on Linux (VPS or local) and Windows 10/11. Requirements: Node.js 20+, Python 3.10+, Git.
+
+### Linux / VPS
 
 ```bash
-# Clone into the standard path
+# Clone into the standard path.
 # Several internal paths default to /home/korvin/korvin.
 # Clone here or update paths in gateway.js, telegram-bot.js, and src/dashboard/main.py.
 git clone https://github.com/nosistech/korvin.git /home/korvin/korvin
@@ -114,7 +116,7 @@ cd /home/korvin/korvin
 # Node dependencies
 npm install
 
-# Python virtual environment (for dashboard + voice)
+# Python virtual environment (dashboard + voice)
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -124,7 +126,56 @@ cp config.example.json config.json
 nano config.json
 ```
 
-Minimum `config.json`:
+Start manually:
+
+```bash
+node src/openclaw/telegram-bot.js          # bot
+uvicorn src.dashboard.main:app --host 127.0.0.1 --port 3002   # dashboard
+```
+
+For systemd service units and Cloudflare Tunnel setup, see [`docs/deployment.md`](docs/deployment.md).
+
+### Windows 10 / 11
+
+```powershell
+# Prerequisites — install these first if missing:
+# Node.js 20+  → https://nodejs.org
+# Python 3.10+ → https://www.python.org/downloads
+# Git           → https://git-scm.com
+
+git clone https://github.com/nosistech/korvin.git C:\korvin
+cd C:\korvin
+
+# Node dependencies
+npm install
+
+# Python virtual environment
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+# Configure
+copy config.example.json config.json
+notepad config.json
+```
+
+Start manually (two PowerShell windows):
+
+```powershell
+# Window 1 — bot
+node src/openclaw/telegram-bot.js
+
+# Window 2 — dashboard
+uvicorn src.dashboard.main:app --host 127.0.0.1 --port 3002
+```
+
+Dashboard opens at `http://127.0.0.1:3002`.
+
+> **Windows path note:** The default internal path is `/home/korvin/korvin`. If you clone to `C:\korvin`, update the `WorkingDirectory` references in `src/openclaw/gateway.js` and `src/dashboard/main.py` to match your clone path.
+
+For the full Windows setup guide including LiteLLM, voice, and running as a background service, see [`quickstart-desktop.md`](quickstart-desktop.md).
+
+### Minimum `config.json`
 
 ```json
 {
@@ -138,19 +189,8 @@ Minimum `config.json`:
 }
 ```
 
-Start manually:
-
-```bash
-# Bot
-node src/openclaw/telegram-bot.js
-
-# Dashboard (separate terminal)
-uvicorn src.dashboard.main:app --host 127.0.0.1 --port 3002
-```
-
 For Docker, see [`docker-compose.yml`](docker-compose.yml).  
-For the full guided setup, see [`quickstart.md`](quickstart.md).  
-For systemd service units, see [`docs/deployment.md`](docs/deployment.md).
+For the full Linux guided setup, see [`quickstart.md`](quickstart.md).
 
 ---
 
@@ -453,11 +493,11 @@ korvin/
 
 ## Documentation
 
-- [Quickstart](quickstart.md) — first install
-- [Desktop install](quickstart-desktop.md) — local machine setup
-- [Commands](docs/commands.md) — full command reference
+- [Linux / VPS quickstart](quickstart.md) — guided setup on Ubuntu/Debian
+- [Windows quickstart](quickstart-desktop.md) — full guide for Windows 10/11 including NSSM background services
+- [Commands](docs/commands.md) — full Telegram command reference
 - [Configuration](docs/configuration.md) — all config options
-- [Deployment](docs/deployment.md) — systemd, Docker, Cloudflare
+- [Deployment](docs/deployment.md) — systemd, Docker, Cloudflare Tunnel
 - [Features](docs/korvin-features.md) — architecture deep dive
 
 ---

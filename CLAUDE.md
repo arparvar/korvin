@@ -43,7 +43,7 @@ PRIVACY RULE — NO EXCEPTIONS: Never log, print, or embed real API keys, tokens
 ```
 
 Codex CLI path: `C:\Users\Asus\AppData\Local\Programs\OpenAI\Codex\bin\codex.exe`
-Flags: `-m gpt-5.5 -C <dir> --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox --color never -`
+Flags: `exec -m gpt-5.5 -C <dir> --skip-git-repo-check --dangerously-bypass-hook-trust --color never -`
 
 ---
 

@@ -233,7 +233,7 @@ Telegram ───────────────────────�
           ┌─────────────┴──────────────┐                               │
           │                            │                                │
      Skill router               LiteLLM proxy                          │
-     (6 skills)                 (port 4000)                             │
+     (9 skills)                 (port 4000)                             │
           │                            │                                │
           │                     Any LLM provider                        │
           │                  (DeepSeek / GPT / Claude                   │
@@ -269,7 +269,7 @@ KORVIN transcribes Telegram voice messages with **Faster-Whisper** and replies w
 | `base` | 145 MB | ~8s | Longer dictation |
 | `small` | 466 MB | ~20s | Highest accuracy |
 
-`tiny.en` is the default because most KORVIN interactions are short commands and it works on a $5 VPS without a GPU. The model stays loaded between messages so there's no cold-start delay after the first transcription.
+`tiny.en` is the default because most KORVIN interactions are short commands and it works on a low-cost VPS without a GPU. The model stays loaded between messages so there's no cold-start delay after the first transcription.
 
 Kokoro TTS uses the `bm_lewis` voice by default. It runs entirely on your server — no API calls, no usage limits.
 

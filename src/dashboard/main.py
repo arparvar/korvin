@@ -36,6 +36,22 @@ CHAT_TIMEOUT_PATH = str(DATA_DIR / "chat_timeout.txt")
 TOKEN_WARNING_PATH = str(DATA_DIR / "token_warning_threshold.txt")
 KORVIN_DASHBOARD_TOKEN = os.environ.get("KORVIN_DASHBOARD_TOKEN", "").strip()
 
+def _init_db():
+    os.makedirs(str(DATA_DIR), exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("""CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        source TEXT,
+        timestamp TEXT
+    )""")
+    conn.commit()
+    conn.close()
+
+_init_db()
+
 def require_key(request: Request, x_korvin_key: Optional[str] = Header(default=None)):
     api_key = os.environ.get("KORVIN_API_KEY", "")
     if not api_key or x_korvin_key != api_key:
@@ -507,6 +523,8 @@ def chat(body: ChatRequest):
     message_text = body.message.strip()
     if not message_text:
         return JSONResponse({"reply": "Please type a message."})
+    if os.path.exists(KILLSWITCH_FLAG):
+        return JSONResponse({"reply": "Korvin is in read-only mode. Disable the kill switch in the dashboard to continue.", "killswitch": True}, status_code=503)
     if re.search(r'ignore\s+(all\s+)?(previous|prior|above)\s+instructions?|you\s+are\s+now|jailbreak|system\s*:|(?:reveal|show|print|dump)\s+(?:your\s+)?system\s+prompt', message_text, re.IGNORECASE):
         raise HTTPException(status_code=400, detail="Input blocked: prompt injection pattern detected.")
 
@@ -779,6 +797,8 @@ async def voice_chat(file: UploadFile = File(...)):
 
     if not transcript:
         return JSONResponse({"error": "Could not transcribe audio"}, status_code=422)
+    if os.path.exists(KILLSWITCH_FLAG):
+        return JSONResponse({"error": "Korvin is in read-only mode.", "killswitch": True}, status_code=503)
 
     # LLM chat (same pipeline as /api/chat, skip injection check — audio is transcribed)
     chat_id = os.environ.get("KORVIN_CHAT_ID", "dashboard-chat")
@@ -865,7 +885,7 @@ async def voice_chat(file: UploadFile = File(...)):
             _f.write(reply_clean)
         import subprocess as _sub
         _venv_py = str(BASE_DIR / "venv" / "bin" / "python")
-        _src = str(BASE_DIR / "src")
+        _src = str(BASE_DIR / "src" / "voice")
         _r = _sub.run(
             [_venv_py, "-c",
              f"import sys; sys.path.insert(0, '{_src}'); "

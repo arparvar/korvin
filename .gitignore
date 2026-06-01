@@ -9,6 +9,24 @@ config.json
 __pycache__/
 *.pyc
 KORVIN.local.md
-
 korvin_voice_config.json
+
+# --- Internal / never public ---
+CLAUDE.md
+.claudeignore
+.cursorignore
+.cursorrules
+config.json.save
+decision_log.md
+KORVIN-REALITY.md
+KORVIN.local.example.md
+FEATURE-COMPARISON.md
+FEATURE-COMPARISON-V2.md
+quickstart-es.md
+ATTRIBUTIONS.md
+reports/
 _ktest_out/
+docs/landing-page-copy-v1.md
+docs/positioning.md
+docs/activity.md
+docs/specs/

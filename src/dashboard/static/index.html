@@ -136,7 +136,7 @@
     <div class="status-row"><div class="dot green"></div>Agent running</div>
     <div class="status-row"><div class="dot blue"></div>Model: <span id="home-model">deepseek-v4-pro</span> via LiteLLM</div>
     <div class="status-row"><div class="dot green"></div>Telegram: @NosisTechBot — active</div>
-    <div class="status-row"><div class="dot green"></div>Voice: <span id="home-voice-label">Whisper STT + Supertonic 3 (M1)</span></div>
+    <div class="status-row"><div class="dot green"></div>Voice: <span id="home-voice-label">Whisper STT + Kokoro TTS (bm_lewis)</span></div>
     <div class="status-row"><div class="dot green"></div>Memory: SQLite — persistent</div>
   </div>
 
@@ -340,10 +340,7 @@
   <div class="card">
     <h3>Voice</h3>
     <div class="status-row"><div class="dot green"></div>STT: <span id="settings-stt-label">Whisper base model</span> — active</div>
-    <div class="status-row"><div class="dot green"></div>TTS: <span id="settings-tts-label">Supertonic 3 (M1)</span> — active</div>
-    <div style="margin-top:10px">
-      <button id="tts-toggle-btn" class="refresh-btn" onclick="switchTtsProvider()">Switch TTS provider</button>
-    </div>
+    <div class="status-row"><div class="dot green"></div>TTS: <span id="settings-tts-label">Kokoro bm_lewis</span> — active</div>
     <div style="margin-top:14px">
       <label style="font-size:0.82rem;color:var(--text2)">STT Model</label>
       <div class="status-row" style="margin-top:6px;gap:8px">
@@ -496,19 +493,6 @@ async function saveSttModel() {
   }
 }
 
-async function switchTtsProvider() {
-  const btn = document.getElementById('tts-toggle-btn');
-  const current = (btn && btn.dataset.current) || 'supertonic';
-  const next = current === 'supertonic' ? 'chatterbox' : 'supertonic';
-  try {
-    const r = await fetch('/api/settings/tts-provider', {
-      method: 'POST',
-      headers: { ...AUTH, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: next })
-    });
-    if (r.ok) await loadVoiceStatus();
-  } catch(e) {}
-}
 applyTheme(localStorage.getItem('korvin-theme') === 'light');
 
 // ── Navigation ─────────────────────────────────────────────────────
@@ -589,15 +573,9 @@ async function loadVoiceStatus() {
     const homeLabel = document.getElementById('home-voice-label');
     const sttLabel = document.getElementById('settings-stt-label');
     const ttsLabel = document.getElementById('settings-tts-label');
-    if (homeLabel) homeLabel.textContent = (d.stt_label || 'Whisper') + ' + ' + (d.tts_label || 'Supertonic 3 (M1)');
+    if (homeLabel) homeLabel.textContent = (d.stt_label || 'Whisper') + ' + Kokoro TTS (bm_lewis)';
     if (sttLabel) sttLabel.textContent = d.stt_label || 'Whisper base model';
-    if (ttsLabel) ttsLabel.textContent = d.tts_label || 'Supertonic 3 (M1)';
-    const ttsBtn = document.getElementById('tts-toggle-btn');
-    if (ttsBtn) {
-      ttsBtn.dataset.current = d.tts_provider || 'supertonic';
-      const nextLabel = d.tts_provider === 'chatterbox' ? 'Supertonic' : 'Chatterbox';
-      ttsBtn.textContent = 'Switch to ' + nextLabel;
-    }
+    if (ttsLabel) ttsLabel.textContent = d.tts_label || 'Kokoro bm_lewis';
     const sttSel = document.getElementById('stt-model-select');
     const sttWarn = document.getElementById('stt-model-warning');
     if (sttSel && d.stt_model) {

@@ -25,7 +25,6 @@ except ImportError:
 BASE_DIR = Path(__file__).parent.parent.parent
 APP_DIR = str(BASE_DIR)
 DATA_DIR = BASE_DIR / "data"
-TTS_PROVIDER_PATH = DATA_DIR / "tts_provider.txt"
 STT_MODEL_PATH = DATA_DIR / "stt_model.txt"
 
 app = FastAPI(title="Korvin Dashboard")
@@ -125,35 +124,14 @@ def root():
 def status():
     return {"korvin": "online", "version": "0.1.1", "memory": "sqlite"}
 
-def _get_tts_provider() -> str:
-    try:
-        p = TTS_PROVIDER_PATH.read_text().strip()
-        if p in ('supertonic', 'chatterbox'):
-            return p
-    except Exception:
-        pass
-    return os.environ.get("KORVIN_TTS_PROVIDER", "supertonic")
-
 @app.get("/api/voice/status", dependencies=[Depends(require_key)])
 def voice_status():
-    voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
-    if voice == "default":
-        voice = "M1"
-    model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3")
     stt_model = _get_stt_model_name()
-    tts_provider = _get_tts_provider()
-    if tts_provider == "chatterbox":
-        tts_label = "Chatterbox Turbo"
-    else:
-        tts_label = f"Supertonic {model} ({voice})"
     return {
-        "stt": "whisper",
         "stt_model": stt_model,
-        "tts_provider": tts_provider,
-        "tts_voice": voice,
-        "tts_model": model,
-        "tts_label": tts_label,
-        "stt_label": f"Whisper {stt_model}"
+        "stt_label": f"Whisper {stt_model}",
+        "tts_label": "Kokoro bm_lewis",
+        "tts_provider": "kokoro",
     }
 
 @app.get("/api/health")
@@ -746,17 +724,6 @@ async def transcribe_audio(file: UploadFile = File(...)):
             pass
     return {"text": text}
 
-class TtsProviderRequest(BaseModel):
-    provider: str
-
-@app.post("/api/settings/tts-provider", dependencies=[Depends(require_key)])
-def set_tts_provider(body: TtsProviderRequest):
-    if body.provider not in ('supertonic', 'chatterbox'):
-        raise HTTPException(status_code=400, detail="provider must be 'supertonic' or 'chatterbox'")
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    TTS_PROVIDER_PATH.write_text(body.provider)
-    return {"provider": body.provider, "ok": True}
-
 _STT_MODEL_ALLOWLIST = {"tiny.en", "distil-large-v3"}
 
 class SttModelRequest(BaseModel):
@@ -880,42 +847,43 @@ async def voice_chat(file: UploadFile = File(...)):
     except Exception:
         pass
 
-    # TTS
+    # TTS via Kokoro
     audio_b64 = None
-    audio_fmt = os.environ.get("KORVIN_TTS_FORMAT", "wav")
+    audio_fmt = "wav"
     import re as _re
     reply_clean = _re.sub(r'\*\*(.*?)\*\*', r'\1', reply)
     reply_clean = _re.sub(r'\*(.*?)\*', r'\1', reply_clean)
     reply_clean = _re.sub(r'`(.*?)`', r'\1', reply_clean)
-    tts_provider = _get_tts_provider()
-    if tts_provider == "chatterbox":
-        chatterbox_url = os.environ.get("KORVIN_CHATTERBOX_URL", "http://127.0.0.1:7789")
-        try:
-            tts_resp = requests.post(
-                f"{chatterbox_url}/generate",
-                json={"text": reply_clean, "exaggeration": 0.5, "cfg_weight": 0.5},
-                timeout=60
-            )
-            if tts_resp.ok:
-                audio_b64 = base64.b64encode(tts_resp.content).decode()
-                audio_fmt = "wav"
-        except Exception:
-            pass
-    else:
-        tts_url = os.environ.get("KORVIN_TTS_URL", "http://127.0.0.1:7788/v1/audio/speech")
-        tts_voice = os.environ.get("KORVIN_TTS_VOICE", "M1")
-        if tts_voice == "default":
-            tts_voice = "M1"
-        tts_model = os.environ.get("KORVIN_TTS_MODEL", "supertonic-3")
-        try:
-            tts_resp = requests.post(
-                tts_url,
-                json={"model": tts_model, "input": reply_clean, "voice": tts_voice, "response_format": audio_fmt},
-                timeout=30
-            )
-            if tts_resp.ok:
-                audio_b64 = base64.b64encode(tts_resp.content).decode()
-        except Exception:
-            pass
+    _txt = None
+    _wav = None
+    try:
+        import uuid as _uuid
+        _uid = _uuid.uuid4().hex
+        _txt = f"/tmp/korvin_tts_{_uid}.txt"
+        _wav = f"/tmp/korvin_tts_{_uid}.wav"
+        with open(_txt, "w") as _f:
+            _f.write(reply_clean)
+        import subprocess as _sub
+        _venv_py = str(BASE_DIR / "venv" / "bin" / "python")
+        _src = str(BASE_DIR / "src")
+        _r = _sub.run(
+            [_venv_py, "-c",
+             f"import sys; sys.path.insert(0, '{_src}'); "
+             f"from voice import generate_speech; "
+             f"generate_speech(open('{_txt}').read(), '{_wav}')"],
+            timeout=60, capture_output=True
+        )
+        if _r.returncode == 0 and os.path.exists(_wav):
+            with open(_wav, "rb") as _f:
+                audio_b64 = base64.b64encode(_f.read()).decode()
+    except Exception:
+        pass
+    finally:
+        for _p in [_txt, _wav]:
+            try:
+                if _p:
+                    os.unlink(_p)
+            except Exception:
+                pass
 
     return JSONResponse({"transcript": transcript, "reply": reply, "audio_base64": audio_b64, "audio_format": audio_fmt})

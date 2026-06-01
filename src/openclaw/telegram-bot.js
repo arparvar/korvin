@@ -115,30 +115,6 @@ generate_speech(text, '${outputPath}')
       );
     };
 
-    if (process.env.KORVIN_TTS_PROVIDER === 'supertonic') {
-      const voice = process.env.KORVIN_TTS_VOICE === 'default' ? 'M1' : (process.env.KORVIN_TTS_VOICE || 'M1');
-      fetch(process.env.KORVIN_TTS_URL || 'http://127.0.0.1:7788/v1/audio/speech', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: process.env.KORVIN_TTS_MODEL || 'supertonic-3',
-          input: ttsText,
-          voice,
-          response_format: process.env.KORVIN_TTS_FORMAT || 'wav'
-        })
-      }).then(async (response) => {
-        if (response.ok) {
-          fs.writeFileSync(outputPath, Buffer.from(await response.arrayBuffer()));
-          return resolve(outputPath);
-        }
-        console.warn('[Korvin] Supertonic TTS failed, falling back to Kokoro:', `${response.status} ${response.statusText}`);
-        runKokoro();
-      }).catch((err) => {
-        console.warn('[Korvin] Supertonic TTS failed, falling back to Kokoro:', err.message || err);
-        runKokoro();
-      });
-      return;
-    }
     runKokoro();
   });
 }

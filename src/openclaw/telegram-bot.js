@@ -7,7 +7,7 @@ require('../security/log-redact').installLogRedaction();
 
 const TelegramBot = require('node-telegram-bot-api');
 const { exec, execSync } = require('child_process');
-const { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, saveNamedSession, loadNamedSession } = require('./gateway');
+const { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, saveNamedSession, loadNamedSession, appendMemory, appendUserNote, getGoal, setGoal, clearGoal } = require('./gateway');
 const { researchTopic } = require('../skills/research');
 const fs = require('fs');
 const path = require('path');
@@ -147,7 +147,10 @@ function activateCronJob(job) {
   if (!cron.validate(job.cronExpr)) return;
   const task = cron.schedule(job.cronExpr, async () => {
     try {
-      await sendMessage(job.action, `cron-${job.id}`);
+      const result = await sendMessage(job.action, 'cron-' + job.id);
+      if (job.chatId && job.chatId !== 'default') {
+        await bot.sendMessage(job.chatId, result);
+      }
     } catch (err) {
       console.error('Cron job error:', err.message);
     }
@@ -332,6 +335,86 @@ registerScan(bot, commandDeps);
 
 // ── Rule Management ────────────────────────────────────────────────────────
 
+bot.onText(/^\/soul$/, async (msg) => {
+  try {
+    const content = fs.readFileSync(path.join(ROOT, 'data', 'SOUL.md'), 'utf8').trim();
+    await bot.sendMessage(msg.chat.id, '*Korvin Identity (SOUL.md)*\n\n' + content, { parse_mode: 'Markdown' });
+  } catch (_) {
+    await bot.sendMessage(msg.chat.id, 'No SOUL.md found at data/SOUL.md - create it to give Korvin a persistent identity.');
+  }
+});
+
+bot.onText(/^\/remember (.+)/, async (msg, match) => {
+  const fact = match[1].trim();
+  appendMemory(fact);
+  await bot.sendMessage(msg.chat.id, 'Remembered: ' + fact);
+});
+
+bot.onText(/^\/me (.+)/, async (msg, match) => {
+  const note = match[1].trim();
+  appendUserNote(note);
+  await bot.sendMessage(msg.chat.id, 'Noted about you: ' + note);
+});
+
+bot.onText(/^\/memory$/, async (msg) => {
+  const chatId = msg.chat.id;
+  try {
+    const mem = fs.readFileSync(path.join(ROOT, 'data', 'MEMORY.md'), 'utf8').trim();
+    const usr = fs.readFileSync(path.join(ROOT, 'data', 'USER.md'), 'utf8').trim();
+    await bot.sendMessage(chatId, '*MEMORY.md*\n' + mem + '\n\n*USER.md*\n' + usr, { parse_mode: 'Markdown' });
+  } catch (e) {
+    await bot.sendMessage(chatId, 'Could not read memory files: ' + e.message);
+  }
+});
+
+bot.onText(/^\/insights$/, async (msg) => {
+  try {
+    const USAGE_PATH = path.join(ROOT, 'data', 'token_usage.json');
+    const AUDIT_PATH = path.join(ROOT, 'data', 'audit.ndjson');
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    let totalTokens = 0;
+    let bestDay = '', bestDayTokens = 0;
+    try {
+      const usage = JSON.parse(fs.readFileSync(USAGE_PATH, 'utf8'));
+      for (const [date, day] of Object.entries(usage)) {
+        if (date >= cutoff) {
+          const t = day.total_tokens || 0;
+          totalTokens += t;
+          if (t > bestDayTokens) { bestDayTokens = t; bestDay = date; }
+        }
+      }
+    } catch (_) {}
+
+    let llmCount = 0, skillCount = 0;
+    try {
+      const lines = fs.readFileSync(AUDIT_PATH, 'utf8').trim().split('\n').filter(Boolean);
+      for (const line of lines) {
+        try {
+          const obj = JSON.parse(line);
+          if (obj.ts && obj.ts.split('T')[0] >= cutoff) {
+            if (obj.event === 'llm_response') llmCount++;
+            if (obj.event === 'skill_dispatched') skillCount++;
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    const cost = (totalTokens / 1_000_000 * 0.87).toFixed(3);
+    const lines = [
+      'Korvin - Last 30 days',
+      'Tokens used: ' + totalTokens.toLocaleString(),
+      'Estimated cost: $' + cost,
+      'LLM responses: ' + llmCount,
+      'Skills dispatched: ' + skillCount,
+    ];
+    if (bestDay) lines.push('Most active: ' + bestDay);
+    await bot.sendMessage(msg.chat.id, lines.join('\n'));
+  } catch (e) {
+    await bot.sendMessage(msg.chat.id, 'Could not load insights: ' + e.message);
+  }
+});
+
 bot.onText(/\/rule(?: (.+))?/, async (msg, match) => {
   const chatId = msg.chat.id;
   const command = match[1] ? match[1].trim() : '';
@@ -378,6 +461,23 @@ bot.onText(/\/rule(?: (.+))?/, async (msg, match) => {
   } else {
     await bot.sendMessage(chatId, 'Unknown subcommand. Use /rule list, /rule add, /rule remove, /rule clear.');
   }
+});
+
+bot.onText(/^\/goal(.*)/, async (msg, match) => {
+  const chatId = msg.chat.id;
+  const arg = (match[1] || '').trim();
+  if (!arg || arg === 'status') {
+    const current = getGoal();
+    await bot.sendMessage(chatId, current ? 'Active goal: ' + current : 'No active goal. Use /goal <text> to set one.');
+    return;
+  }
+  if (arg === 'clear') {
+    clearGoal();
+    await bot.sendMessage(chatId, 'Goal cleared.');
+    return;
+  }
+  setGoal(arg);
+  await bot.sendMessage(chatId, 'Goal set: ' + arg);
 });
 
 bot.onText(/^\/(new|reset)$/, async (msg) => {

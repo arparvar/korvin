@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.resolve(__dirname, '..', '..');
+const SOUL_PATH   = path.join(ROOT, 'data', 'SOUL.md');
+const MEMORY_PATH = path.join(ROOT, 'data', 'MEMORY.md');
+const USER_PATH   = path.join(ROOT, 'data', 'USER.md');
+const GOAL_PATH = path.join(ROOT, 'data', 'goal.json');
 const LITELLM_URL = 'http://localhost:4000/v1/chat/completions';
 const ACTIVE_MODEL_PATH = path.join(ROOT, 'data', 'active_model.txt');
 const TOKEN_WARNING_PATH = path.join(ROOT, 'data', 'token_warning_threshold.txt');
@@ -9,6 +13,30 @@ const PREFERENCES_PATH = path.join(ROOT, 'data', 'preferences.json');
 const MEMORY_DB_PATH = path.join(ROOT, 'data', 'memory.db');
 
 const AUDIT_LOG_PATH = path.join(ROOT, 'data', 'audit.ndjson');
+
+function readContextFile(p) {
+  try { return fs.readFileSync(p, 'utf8').trim(); } catch (_) { return ''; }
+}
+
+function appendMemory(text) {
+  fs.appendFileSync(MEMORY_PATH, '\n- ' + String(text).trim(), 'utf8');
+}
+
+function appendUserNote(text) {
+  fs.appendFileSync(USER_PATH, '\n- ' + String(text).trim(), 'utf8');
+}
+
+function getGoal() {
+  try { return JSON.parse(fs.readFileSync(GOAL_PATH, 'utf8')).text || null; } catch (_) { return null; }
+}
+
+function setGoal(text) {
+  fs.writeFileSync(GOAL_PATH, JSON.stringify({ text: String(text).trim() }));
+}
+
+function clearGoal() {
+  try { fs.unlinkSync(GOAL_PATH); } catch (_) {}
+}
 
 function appendAuditLog(event, fields = {}) {
   try {
@@ -223,7 +251,15 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
     return skillResult;
   }
   const history = getHistory(chatId);
+  const soul   = readContextFile(SOUL_PATH);
+  const memory = readContextFile(MEMORY_PATH);
+  const user   = readContextFile(USER_PATH);
+  const goal = getGoal();
   const messages = [
+    ...(soul   ? [{ role: 'system', content: soul }]   : []),
+    ...(memory ? [{ role: 'system', content: memory }] : []),
+    ...(user   ? [{ role: 'system', content: user }]   : []),
+    ...(goal ? [{ role: 'system', content: 'Active goal: ' + goal }] : []),
     { role: 'system', content: SYSTEM_PROMPT },
     ...history.map(m => ({ ...m, content: sanitizeContent(m.content) })),
   ];
@@ -264,6 +300,10 @@ async function sendMessage(userMessage, chatId = 'default', preferences = []) {
       } catch (_) {}
     }
     messages.length = 0;
+    if (soul)   messages.push({ role: 'system', content: soul });
+    if (memory) messages.push({ role: 'system', content: memory });
+    if (user)   messages.push({ role: 'system', content: user });
+    if (goal)   messages.push({ role: 'system', content: 'Active goal: ' + goal });
     messages.push({ role: 'system', content: SYSTEM_PROMPT });
     messages.push({ role: 'system', content: summaryNote });
     if (preferences.length > 0) {
@@ -508,4 +548,4 @@ conn.commit(); conn.close()
   return `Loaded session "${safeName}" — ${messages.length} messages restored.`;
 }
 
-module.exports = { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, saveNamedSession, loadNamedSession, getLastRateLimitHeaders, appendAuditLog, getApiKey };
+module.exports = { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, saveNamedSession, loadNamedSession, getLastRateLimitHeaders, appendAuditLog, getApiKey, appendMemory, appendUserNote, getGoal, setGoal, clearGoal };

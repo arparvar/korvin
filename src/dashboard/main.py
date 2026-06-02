@@ -55,6 +55,7 @@ _init_db()
 def require_key(request: Request, x_korvin_key: Optional[str] = Header(default=None)):
     api_key = os.environ.get("KORVIN_API_KEY", "")
     if not api_key or x_korvin_key != api_key:
+        _audit("auth_failed", provided_key_prefix=(x_korvin_key or "")[:6])
         raise HTTPException(status_code=403, detail="Forbidden")
     if KORVIN_DASHBOARD_TOKEN:
         x_korvin_token = request.headers.get("x-korvin-token")
@@ -72,6 +73,16 @@ SECRET_SANITIZE = re.compile(
 
 def _redact_sensitive(text: str) -> str:
     return SECRET_SANITIZE.sub("[REDACTED_SECRET]", str(text or ""))
+
+def _audit(event: str, **kwargs):
+    audit_path = DATA_DIR / "audit.ndjson"
+    entry = {"ts": datetime.utcnow().isoformat(), "event": event, **kwargs}
+    try:
+        os.makedirs(str(DATA_DIR), exist_ok=True)
+        with open(str(audit_path), "a") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception:
+        pass
 
 def _read_chat_timeout():
     try:
@@ -142,8 +153,11 @@ def status():
 
 @app.get("/api/voice/status", dependencies=[Depends(require_key)])
 def voice_status():
+    if not _WHISPER_AVAILABLE:
+        return {"installed": False, "stt_model": None, "stt_label": "Not installed", "tts_label": "Not installed", "tts_provider": None}
     stt_model = _get_stt_model_name()
     return {
+        "installed": True,
         "stt_model": stt_model,
         "stt_label": f"Whisper {stt_model}",
         "tts_label": "Kokoro bm_lewis",
@@ -308,6 +322,7 @@ def killswitch_set(body: KillswitchRequest):
         if os.path.exists(KILLSWITCH_FLAG):
             os.remove(KILLSWITCH_FLAG)
     active = os.path.exists(KILLSWITCH_FLAG)
+    _audit("killswitch_toggle", enabled=body.enabled)
     return {"killswitch": active, "mode": "read_only" if active else "normal"}
 
 CONFIG_PATH = str(BASE_DIR / "config.json")
@@ -328,21 +343,30 @@ def _write_config(updates: dict):
 ACTIVE_MODEL_PATH = str(DATA_DIR / "active_model.txt")
 
 MODEL_LABELS = {
-    "deepseek-v4-pro": "DeepSeek V4 Pro",
+    "deepseek-v4-pro":   "DeepSeek V4 Pro",
     "deepseek-v4-flash": "DeepSeek V4 Flash",
-    "gemini-flash": "Gemini Flash",
+    "gemini-flash":      "Gemini Flash",
+    "deepseek-chat":     "DeepSeek Chat",
+    "mimo-v2.5":         "MiMo v2.5",
+    "mimo-v2.5-pro":     "MiMo v2.5 Pro",
 }
 
 MODEL_WHITELIST = {
-    "deepseek-v4-pro":      "openai/deepseek-v4-pro",
-    "deepseek-v4-flash":    "openai/deepseek-v4-flash",
-    "gemini-flash":         "gemini/gemini-2.5-flash",
+    "deepseek-v4-pro":   "openai/deepseek-v4-pro",
+    "deepseek-v4-flash": "openai/deepseek-v4-flash",
+    "gemini-flash":      "gemini/gemini-2.5-flash",
+    "deepseek-chat":     "deepseek/deepseek-chat",
+    "mimo-v2.5":         "openai/mimo-v2.5",
+    "mimo-v2.5-pro":     "openai/mimo-v2.5-pro",
 }
 
 MODEL_KEY_REQUIREMENTS = {
     "deepseek-v4-pro":   "DEEPSEEK_API_KEY",
     "deepseek-v4-flash": "DEEPSEEK_API_KEY",
     "gemini-flash":      "GEMINI_API_KEY",
+    "deepseek-chat":     "DEEPSEEK_API_KEY",
+    "mimo-v2.5":         "MIMO_API_KEY",
+    "mimo-v2.5-pro":     "MIMO_API_KEY",
 }
 
 def _read_active_model():
@@ -396,12 +420,13 @@ class PruneRequest(BaseModel):
     chat_id: str = ""
 
 @app.post("/api/memory/prune", dependencies=[Depends(require_key)])
-def prune_memory(body: PruneRequest):
+def prune_memory(body: Optional[PruneRequest] = None):
     from src.hermes.memory import prune
+    chat_id = (body.chat_id if body else "") or os.environ.get("KORVIN_CHAT_ID", "dashboard-chat")
     config = _read_config()
     limit = config.get("memory_limit", 100)
-    pruned = prune(body.chat_id, limit)
-    return {"pruned": pruned, "limit": limit, "chat_id": body.chat_id}
+    pruned = prune(chat_id, limit)
+    return {"pruned": pruned, "limit": limit, "chat_id": chat_id}
 
 @app.get("/api/active-model", dependencies=[Depends(require_key)])
 def get_active_model():
@@ -541,6 +566,7 @@ def chat(body: ChatRequest):
     if os.path.exists(KILLSWITCH_FLAG):
         return JSONResponse({"reply": "Korvin is in read-only mode. Disable the kill switch in the dashboard to continue.", "killswitch": True}, status_code=503)
     if re.search(r'ignore\s+(all\s+)?(previous|prior|above)\s+instructions?|you\s+are\s+now|jailbreak|system\s*:|(?:reveal|show|print|dump)\s+(?:your\s+)?system\s+prompt', message_text, re.IGNORECASE):
+        _audit("injection_blocked", chat_id=chat_id, snippet=message_text[:80])
         raise HTTPException(status_code=400, detail="Input blocked: prompt injection pattern detected.")
 
     result = subprocess.run(
@@ -615,7 +641,8 @@ def chat(body: ChatRequest):
         if not resp.ok:
             return {"reply": f"LiteLLM error: {resp.status_code}", "error": True}
         data = resp.json()
-        reply = _redact_sensitive(data["choices"][0]["message"]["content"])
+        _msg = data["choices"][0]["message"]
+        reply = _redact_sensitive(_msg.get("content") or _msg.get("reasoning_content") or "")
         used = data.get("usage", {}).get("total_tokens", 0)
         if used > _read_token_warning():
             reply += f"\n\n💰 This response used {used:,} tokens. You can adjust the warning threshold in Settings → Token Budget Warning."
@@ -875,7 +902,8 @@ async def voice_chat(file: UploadFile = File(...)):
         if not resp.ok:
             return JSONResponse({"transcript": transcript, "reply": f"LLM error {resp.status_code}", "audio_base64": None})
         data = resp.json()
-        reply = _redact_sensitive(data["choices"][0]["message"]["content"])
+        _msg_v = data["choices"][0]["message"]
+        reply = _redact_sensitive(_msg_v.get("content") or _msg_v.get("reasoning_content") or "")
     except Exception as e:
         return JSONResponse({"transcript": transcript, "reply": f"Error: {str(e)}", "audio_base64": None})
 

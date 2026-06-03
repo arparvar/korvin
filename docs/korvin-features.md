@@ -245,7 +245,7 @@ Microphone → VAD check → Whisper STT → LLM → Kokoro TTS → Audio reply
 
 **VAD (Voice Activity Detection):** Silent audio (< -40 dBFS) is rejected before Whisper loads. Saves CPU, prevents hallucination on silence.
 
-**STT:** Faster-Whisper tiny.en running locally (int8 quantized — ~95 MB RAM, 4-8x faster than stock Whisper, identical accuracy). Model: configurable via `KORVIN_STT_MODEL`. Upgrade path: set `KORVIN_STT_MODEL=distil-large-v3` to use Distil-Whisper's architecture inside Faster-Whisper's engine — no code change required.
+**STT:** Faster-Whisper tiny.en running locally (int8 quantized — ~95 MB RAM, 4-8x faster than stock Whisper, identical accuracy). Model: configurable via the dashboard. Upgrade path: select `distil-medium.en` for higher transcription accuracy at about 384 MB RAM.
 
 **TTS:** Kokoro — runs locally, no API cost, no external service required.
 
@@ -266,24 +266,21 @@ Enables `search_similar(chat_id, query, k=5)` — semantic search by meaning, no
 
 ---
 
-## Credential Vault (opt-in)
+## Secret Handling
 
-**File:** `src/vault/vault.js`  
-A loopback-only HTTP server (default port 4001) that brokers secrets to other Korvin processes. Configure with `KORVIN_VAULT_HOST`, `KORVIN_VAULT_PORT`, `KORVIN_VAULT_TOKEN`.
+Korvin reads secrets from environment variables only. The installers write them to a `chmod 600` environment file, and services load that file through systemd or Docker.
 
-Gateway fetches the LiteLLM key lazily from the vault on first request when `KORVIN_VAULT_URL` + `KORVIN_VAULT_TOKEN` are set.
-
-Allowlisted keys: `LITELLM_MASTER_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `TELEGRAM_BOT_TOKEN`.
+The dashboard uses `KORVIN_DASHBOARD_TOKEN` for browser login and keeps `KORVIN_API_KEY` as an internal API key for non-browser callers.
 
 ---
 
 ## Dashboard Authentication
 
-Two-layer auth on protected endpoints:
-1. `X-Korvin-Key` header — main API key (`KORVIN_API_KEY`)
-2. `X-Korvin-Token` header — dashboard token (`KORVIN_DASHBOARD_TOKEN`, optional)
+Protected endpoints accept either:
+1. A valid httpOnly dashboard session cookie from `POST /api/login`
+2. The `X-Korvin-Key` header for non-browser callers
 
-`/api/health` reports `dashboard_token_required: true/false` so clients can detect which layers are active.
+The browser never receives the raw `KORVIN_API_KEY`.
 
 ---
 
@@ -291,16 +288,12 @@ Two-layer auth on protected endpoints:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `KORVIN_API_KEY` | — | Dashboard auth key |
-| `KORVIN_DASHBOARD_TOKEN` | (off) | Second auth factor for dashboard |
+| `KORVIN_API_KEY` | --- | Internal API key for non-browser callers |
+| `KORVIN_DASHBOARD_TOKEN` | --- | Dashboard login password |
 | `LITELLM_MASTER_KEY` | — | LLM proxy auth |
-| `KORVIN_STT_MODEL` | `tiny.en` | Faster-Whisper model size (also accepts `distil-large-v3` for upgrade) |
+| `KORVIN_STT_MODEL` | `tiny.en` | Faster-Whisper model size (dashboard allowlist: `tiny.en`, `distil-medium.en`) |
 | `KORVIN_ADVANCED_SCRAPER` | (off) | Enable CSS-targeted web scraping |
 | `KORVIN_MEMORY_BACKEND` | `sqlite` | Set to `chromadb` for vector memory |
-| `KORVIN_VAULT_URL` | (off) | Vault server URL |
-| `KORVIN_VAULT_TOKEN` | — | Vault auth token |
-| `KORVIN_VAULT_HOST` | `127.0.0.1` | Vault bind address |
-| `KORVIN_VAULT_PORT` | `4001` | Vault port |
 
 ---
 
@@ -333,7 +326,6 @@ korvin/
 │   ├── openclaw/          # Gateway, defender, security
 │   ├── hermes/            # Memory layer
 │   ├── skills/            # Dispatcher + individual skills
-│   ├── vault/             # Credential vault sidecar
 │   └── security/          # External content wrapper
 └── config.json            # Memory strategy, model config
 ```

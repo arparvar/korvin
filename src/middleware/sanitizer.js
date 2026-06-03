@@ -1,5 +1,7 @@
 'use strict';
 
+const { redactText } = require('../security/redaction');
+
 /**
  * KORVIN Sanitizer
  * Strips prompt injection, command escalation attempts, and oversized payloads
@@ -34,18 +36,8 @@ const COMMAND_INJECTION_PATTERNS = [
   /require\s*\(\s*['"`]child_process/i,
 ];
 
-const SENSITIVE_PATTERNS = [
-  [/\bsk-[A-Za-z0-9_-]{8,}\b/g, '[REDACTED_API_KEY]'],
-  [/\bBearer\s+[A-Za-z0-9._-]{8,}/gi, 'Bearer [REDACTED_TOKEN]'],
-  [/\b(api[_-]?key|token|secret)\s*[:=]\s*["']?[^"'\s]+/gi, '$1=[REDACTED_SECRET]'],
-  [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]'],
-];
-
 function redactSensitive(text) {
-  return SENSITIVE_PATTERNS.reduce(
-    (safe, [pattern, replacement]) => safe.replace(pattern, replacement),
-    String(text || '')
-  );
+  return redactText(text);
 }
 
 /**
@@ -55,7 +47,7 @@ function redactSensitive(text) {
  * @param {string} input
  * @returns {{ safe: boolean, value?: string, reason?: string }}
  */
-function sanitize(input) {
+function validateInput(input) {
   if (typeof input !== 'string') {
     return { safe: false, reason: 'Input must be a string.' };
   }
@@ -98,7 +90,7 @@ function sanitizeObject(obj, fields) {
 
   for (const key of keys) {
     if (typeof obj[key] === 'string') {
-      const result = sanitize(obj[key]);
+      const result = validateInput(obj[key]);
       if (!result.safe) {
         return { safe: false, reason: result.reason, field: key };
       }
@@ -110,7 +102,7 @@ function sanitizeObject(obj, fields) {
 }
 
 function sanitizeInput(rawText) {
-  return sanitize(rawText);
+  return validateInput(rawText);
 }
 
-module.exports = { sanitize, sanitizeObject, sanitizeInput, redactSensitive, MAX_INPUT_LENGTH };
+module.exports = { validateInput, sanitizeObject, sanitizeInput, redactSensitive, MAX_INPUT_LENGTH };

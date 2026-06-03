@@ -28,7 +28,7 @@ const RISK_MAP = {
 const TIMEOUT_MS = (parseInt(process.env.KORVIN_APPROVAL_TIMEOUT_SECONDS, 10) || 120) * 1000;
 
 function classifyRisk(action) {
-  return RISK_MAP[action.toLowerCase()] || 'MEDIUM';
+  return RISK_MAP[action.toLowerCase()] || 'HIGH';
 }
 
 function generatePendingId() {

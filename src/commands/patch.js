@@ -50,7 +50,8 @@ function registerPatch(bot, deps) {
         }
       });
     } catch (err) {
-      await bot.sendMessage(msg.chat.id, `❌ Patch error: ${err.message}`);
+      console.error('Patch command error:', err);
+      await bot.sendMessage(msg.chat.id, 'Patch research failed. Check the server logs for details.');
     }
   });
 }

@@ -10,7 +10,7 @@ REPO_URL="${KORVIN_REPO_URL:-https://github.com/nosistech/korvin.git}"
 ENV_FILE="/etc/korvin.env"
 SKILL_USER="korvin-skill"
 LITELLM_CONFIG="${APP_HOME}/litellm_config.yaml"
-CONFIG_FILE="${APP_DIR}/config.json"
+CONFIG_FILE="${APP_DIR}/data/config.json"
 TOTAL_STEPS=7
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "${SCRIPT_DIR}/scripts/install-lib.sh"
@@ -139,6 +139,30 @@ install_app_deps() {
   runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" -m pip install -r "${APP_DIR}/requirements.txt"
   runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" -m pip install 'litellm[proxy]'
   runuser -u "${APP_USER}" -- npm --prefix "${APP_DIR}" install
+  # Pre-warm faster-whisper STT models so the first /api/stt call never downloads
+  # inside the request. The service runs with ProtectHome=read-only and cannot write
+  # to ~/.cache/huggingface at runtime; warming here (as ${APP_USER}, unsandboxed)
+  # populates the cache so the service can read it later. Best-effort: an offline
+  # install just falls back to download-on-first-use.
+  if ! runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" - <<'PYWARM'
+from faster_whisper import WhisperModel
+for m in ("tiny.en", "distil-medium.en"):
+    WhisperModel(m, device="cpu", compute_type="int8")
+PYWARM
+  then
+    echo "  WARN: STT model pre-fetch skipped (offline or faster-whisper missing); first transcription may be slow or fail under read-only home."
+  fi
+  # Pre-warm the Kokoro TTS model (B118) for the same read-only-home reason as STT above: the
+  # service cannot write to ~/.cache/huggingface at runtime, so the 82M model must be fetched here.
+  # Without this the first /api/voice/chat had to download inside the 60s subprocess and returned
+  # silent no-audio. Best-effort: an offline install falls back to download-on-first-use.
+  if ! runuser -u "${APP_USER}" -- "${APP_DIR}/venv/bin/python" - <<'PYWARM'
+from kokoro import KPipeline
+KPipeline(lang_code='b', repo_id='hexgrad/Kokoro-82M')
+PYWARM
+  then
+    echo "  WARN: TTS model pre-fetch skipped (offline or kokoro missing); first voice reply may be slow or silent."
+  fi
 }
 
 write_env_file() {
@@ -177,16 +201,15 @@ EOF
 }
 
 write_config_json() {
-  local telegram_bot_token="$1"
-
-  CONFIG_FILE="${CONFIG_FILE}" TELEGRAM_BOT_TOKEN="${telegram_bot_token}" python3 - <<'PY'
+  CONFIG_FILE="${CONFIG_FILE}" python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
+# Non-secret runtime settings only. Secrets (Telegram token, API keys) live in /etc/korvin.env (B113).
 config_path = Path(os.environ["CONFIG_FILE"])
 config_path.write_text(
-    json.dumps({"telegramToken": os.environ["TELEGRAM_BOT_TOKEN"]}, indent=2) + "\n",
+    json.dumps({"memory_limit": 100, "max_tokens": 128000, "memory_strategy": "sliding_window"}, indent=2) + "\n",
     encoding="utf-8",
 )
 PY
@@ -542,7 +565,7 @@ main() {
   runuser -u "${APP_USER}" -- /usr/bin/node -e "require('${APP_DIR}/src/capabilities/registry').seedIfMissing()" || true
   step 4 "Writing configuration"
   write_env_file "${TELEGRAM_BOT_TOKEN}" "${KORVIN_CHAT_ID}" "${DEEPSEEK_API_KEY}" "${GEMINI_API_KEY}" "${LITELLM_MASTER_KEY}" "${KORVIN_API_KEY}" "${KORVIN_DASHBOARD_TOKEN}"
-  write_config_json "${TELEGRAM_BOT_TOKEN}"
+  write_config_json
   write_litellm_config
   configure_skill_isolation
   if ! write_killswitch_sudoers; then

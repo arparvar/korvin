@@ -1,0 +1,13 @@
+# GPU (CUDA) torch — OPT-IN ONLY. The default voice install is CPU (requirements-voice.txt).
+#
+# Use this ONLY on a machine with a real NVIDIA GPU and working drivers. On a CPU-only box it
+# downloads ~3.4 GB of NVIDIA libraries that never run, for zero benefit. See:
+#   docs/voice-cpu-vs-gpu.md
+#
+# Usage — run AFTER the normal install (requirements.txt). It replaces the CPU torch in place:
+#   pip install -r requirements-voice-gpu.txt
+#
+# Pinned to the same torch version as the CPU build, just the CUDA 13.0 flavor, so behavior
+# is identical apart from GPU acceleration.
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.12.0+cu130

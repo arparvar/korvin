@@ -99,12 +99,12 @@ async function transcribeYoutube(url) {
   // Transcribe with Whisper
   let transcript = '';
   try {
-    const safeFilepath = audioPath.replace(/'/g, "\\'");
     const { stdout } = await runExecFile(
       'venv/bin/python3',
       [
         '-c',
-        `import whisper; m=whisper.load_model('tiny.en'); r=m.transcribe('${safeFilepath}'); print(r['text'])`,
+        `import sys, whisper; m=whisper.load_model('tiny.en'); r=m.transcribe(sys.argv[1]); print(r['text'])`,
+        audioPath,
       ],
       { timeout: 120000, cwd: ROOT }
     );

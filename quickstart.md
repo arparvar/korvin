@@ -20,15 +20,16 @@ After you are logged into the VPS as root, download and run the installer:
 
 ```bash
 cd /root
-curl -fsSL https://raw.githubusercontent.com/nosistech/korvin/main/install.sh -o install.sh
-bash install.sh
+git clone https://github.com/nosistech/korvin.git
+cd korvin
+sudo bash install.sh
 ```
 
 Expected output while it runs:
 
-- The installer asks for five secret values.
+- The installer asks for the optional Telegram values, one LLM API key, and a dashboard login password. Internal API and LiteLLM keys are generated silently.
 - `apt-get update` and `apt-get install` print package download and install progress.
-- If Node.js 18 is not already installed, the installer adds the NodeSource Node 18 repository and installs `nodejs`.
+- If Node.js 20 is not already installed, the installer adds the NodeSource Node 20 repository and installs `nodejs`.
 - The installer creates the `korvin` user if it does not already exist.
 - The installer clones or updates `https://github.com/nosistech/korvin.git` into `/home/korvin/korvin`.
 - Python and Node dependencies install.
@@ -49,19 +50,17 @@ The installer prompts for these values in this exact order. The input is hidden 
 
 ```text
 Telegram bot token:
-DeepSeek API key:
-Gemini API key:
-LiteLLM master key:
-Korvin dashboard API key:
+Korvin Chat ID:
+LLM API key (Gemini or DeepSeek):
+Dashboard login password:
 ```
 
 What to paste:
 
-- `Telegram bot token`: paste the token from @BotFather for your Telegram bot.
-- `DeepSeek API key`: paste your DeepSeek API key. This powers the default `deepseek-v4-pro` and `deepseek-v4-flash` models.
-- `Gemini API key`: paste your Gemini API key. This powers the `gemini-flash` model.
-- `LiteLLM master key`: paste a private random key from your password manager. Korvin uses this as the LiteLLM bearer token and writes it as `OPENAI_API_KEY` in `/etc/korvin.env`.
-- `Korvin dashboard API key`: paste a second private random key from your password manager. The dashboard uses this as `X-Korvin-Key`.
+- `Telegram bot token`: paste the token from @BotFather, or press Enter for dashboard-only mode.
+- `Korvin Chat ID`: paste your Telegram chat/user ID, or press Enter to skip.
+- `LLM API key`: paste one Gemini or DeepSeek key. Gemini keys start with `AIza`; other keys are treated as DeepSeek.
+- `Dashboard login password`: choose a strong password for browser login.
 
 If you press Enter without typing a value, expected output is:
 
@@ -443,7 +442,7 @@ active
 
 ### Dashboard returns 403
 
-The dashboard API requires the `KORVIN_API_KEY` from `/etc/korvin.env`. The bundled dashboard page injects this key automatically when served by FastAPI. If API calls return 403, reload the page through the dashboard URL and restart the dashboard service:
+The browser dashboard requires a valid session from `POST /api/login` using `KORVIN_DASHBOARD_TOKEN`. `KORVIN_API_KEY` stays internal for non-browser callers. If API calls return 403, log in again through the dashboard and restart the dashboard service:
 
 ```bash
 systemctl restart korvin-dashboard.service

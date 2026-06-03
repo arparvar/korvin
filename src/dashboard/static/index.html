@@ -3,128 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'">
 <link rel="manifest" href="/static/manifest.json">
 <title>Korvin Dashboard</title>
-<style>
-  :root {
-    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
-    --border: #30363d; --text: #e6edf3; --text2: #c9d1d9; --text3: #8b949e;
-    --blue: #1f6feb; --green: #2ea043; --yellow: #d29922; --red: #f85149;
-    --cyan: #00d4ff; --link: #58a6ff;
-  }
-  .light {
-    --bg: #ffffff; --bg2: #f6f8fa; --bg3: #eaeef2;
-    --border: #d0d7de; --text: #1f2328; --text2: #656d76; --text3: #8c959f;
-    --blue: #0969da; --green: #1a7f37; --yellow: #9a6700; --red: #d1242f;
-    --cyan: #0550ae; --link: #0969da;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; transition: background 0.2s, color 0.2s; }
-  header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
-  header h1 { font-size: 1.4rem; color: var(--cyan); }
-  nav { display: flex; gap: 4px; margin-left: auto; flex-wrap: nowrap; overflow-x: auto; align-items: center; }
-  @media (max-width: 600px) { nav button { padding: 8px 10px; font-size: 0.8rem; } }
-  nav button { background: none; border: none; color: var(--text3); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
-  nav button:hover { background: var(--bg3); color: var(--text); }
-  nav button.active { background: var(--blue); color: #fff; }
-  .theme-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 1rem; margin-left: 8px; }
-  main { max-width: 900px; margin: 0 auto; padding: 24px; }
-  .page { display: none; }
-  .page.active { display: block; }
-  h2 { font-size: 1.2rem; margin-bottom: 16px; color: var(--text); }
-  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
-  .card h3 { font-size: 1rem; margin-bottom: 14px; color: var(--text); }
-  .status-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 0.9rem; color: var(--text2); }
-  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
-  .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
-  .dot.blue { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
-  .bar-wrap { background: var(--bg3); border-radius: 6px; height: 14px; overflow: hidden; margin: 8px 0 4px; }
-  .bar { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
-  .bar.ok { background: linear-gradient(90deg, #2ea043, #3fb950); }
-  .bar.warning { background: linear-gradient(90deg, #d29922, #e3b341); }
-  .bar.critical { background: linear-gradient(90deg, #f85149, #ff7b72); }
-  .bar-label { font-size: 0.75rem; color: var(--text3); display: flex; justify-content: space-between; margin-top: 4px; }
-  .slider-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; font-size: 0.85rem; color: var(--text3); }
-  input[type=range] { flex: 1; accent-color: var(--blue); }
-  .msg-list { max-height: 360px; overflow-y: auto; }
-  .msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 0.85rem; line-height: 1.5; }
-  .msg.user { background: var(--bg3); border-left: 3px solid var(--blue); }
-  .msg.assistant { background: var(--bg3); border-left: 3px solid var(--green); }
-  .msg.system { background: var(--bg3); border-left: 3px solid var(--cyan); font-style: italic; }
-  .msg-role { font-size: 0.72rem; color: var(--text3); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
-  .summary-badge { display: inline-block; background: var(--cyan); color: #000; font-size: 0.65rem; font-weight: 700; padding: 1px 6px; border-radius: 8px; margin-right: 6px; vertical-align: middle; letter-spacing: 0.05em; }
-  .stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
-  .stat-box { background: var(--bg3); border-radius: 8px; padding: 14px; text-align: center; }
-  .stat-val { font-size: 1.5rem; font-weight: 700; color: var(--cyan); }
-  .stat-lbl { font-size: 0.75rem; color: var(--text3); margin-top: 4px; }
-  .skill-chip { display: inline-block; background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; margin: 4px; font-size: 0.82rem; color: var(--link); }
-  .threat-item { padding: 8px 12px; background: var(--bg3); border-left: 3px solid var(--yellow); border-radius: 4px; margin-bottom: 8px; font-size: 0.83rem; color: var(--text2); }
-  .kill-btn { color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; margin-top: 10px; transition: background 0.3s; }
-  .log-box { background: var(--bg); border: 1px solid var(--bg3); border-radius: 8px; padding: 14px; font-family: monospace; font-size: 0.8rem; max-height: 320px; overflow-y: auto; line-height: 1.7; white-space: pre-wrap; }
-  .log-line.error { color: var(--red); }
-  .log-line.warn { color: var(--yellow); }
-  .log-line.info { color: #7ee787; }
-  .search-input { width: 100%; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: var(--text); font-size: 0.9rem; margin-bottom: 12px; outline: none; }
-  .search-input:focus { border-color: var(--blue); }
-  .refresh-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text3); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; float: right; }
-  .refresh-btn:hover { color: var(--text); }
-  .tag { font-size: 0.72rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; margin-left: 8px; }
-  .tag.ok { background: #1a3d2b; color: #2ea043; }
-  .tag.warning { background: #3d2e00; color: #d29922; }
-  .tag.critical { background: #3d1c1c; color: #f85149; }
-  .cw-meta { font-size: 0.85rem; color: var(--text3); margin-bottom: 6px; }
-  .cw-meta strong { color: var(--text); }
-  .kill-status { font-size: 0.85rem; margin-top: 10px; color: var(--text3); }
-  .mode-toggle { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 0.85rem; }
-  .mode-toggle label { color: var(--text3); cursor: pointer; }
-  .toggle-switch { position: relative; width: 44px; height: 24px; }
-  .toggle-switch input { opacity: 0; width: 0; height: 0; }
-  .toggle-slider { position: absolute; inset: 0; background: var(--bg3); border-radius: 24px; cursor: pointer; transition: 0.3s; border: 1px solid var(--border); }
-  .toggle-slider:before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; bottom: 3px; background: var(--text3); border-radius: 50%; transition: 0.3s; }
-  input:checked + .toggle-slider { background: var(--blue); }
-  input:checked + .toggle-slider:before { transform: translateX(20px); background: #fff; }
-  .apply-btn { background: var(--blue); color: #fff; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-top: 12px; transition: opacity 0.2s; }
-  .apply-btn:hover { opacity: 0.85; }
-  .apply-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .prune-btn { background: var(--yellow); color: #000; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-top: 12px; margin-left: 8px; transition: opacity 0.2s; }
-  .prune-btn:hover { opacity: 0.85; }
-  .export-btn { background: var(--bg3); color: var(--text); border: 1px solid var(--border); padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; margin-top: 12px; transition: all 0.2s; }
-  .export-btn:hover { border-color: var(--blue); color: var(--link); }
-  .strategy-select { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; margin-top: 10px; width: 100%; max-width: 320px; }
-  .feedback { font-size: 0.8rem; margin-top: 8px; min-height: 18px; }
-  .feedback.ok { color: var(--green); }
-  .feedback.err { color: var(--red); }
-  .field-input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; width: 100%; max-width: 420px; margin-top: 6px; }
-  .field-label { font-size: 0.85rem; color: var(--text3); margin-top: 12px; display: block; }
-  .summarizer-fields { margin-top: 4px; padding: 14px; background: var(--bg3); border-radius: 8px; border: 1px solid var(--border); }
-  .summarizer-fields .hint { font-size: 0.75rem; color: var(--text3); margin-top: 6px; }
-  .model-switcher { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-  .model-btn { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
-  .model-btn:hover { border-color: var(--blue); color: var(--text); }
-  .model-btn.active-model { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
-  .model-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .model-badge { display: inline-block; background: var(--bg3); border: 1px solid var(--cyan); color: var(--cyan); font-size: 0.8rem; padding: 3px 10px; border-radius: 12px; margin-top: 8px; }
-  .switch-feedback { font-size: 0.8rem; margin-top: 10px; min-height: 18px; }
-  .switch-feedback.ok { color: var(--green); }
-  .switch-feedback.err { color: var(--red); }
-  .switch-feedback.loading { color: var(--yellow); }
-</style>
+<link rel="stylesheet" href="/static/dashboard.css">
 </head>
-<body>
+<body class="locked">
+<div id="lock-screen" class="lock-screen">
+  <form class="lock-panel" id="login-form">
+    <h2>Korvin Locked</h2>
+    <p>Enter your dashboard password to continue.</p>
+    <input class="field-input" id="login-password" type="password" autocomplete="current-password" placeholder="Dashboard password">
+    <button class="apply-btn" id="login-btn" type="submit" style="width:100%">Unlock</button>
+    <div class="feedback err" id="login-feedback"></div>
+  </form>
+</div>
 <header>
   <span style="font-size:1.6rem">🚀</span>
   <h1>Korvin Dashboard</h1>
   <nav>
-    <button class="active" onclick="showPage('home',this)">Home</button>
-    <button onclick="showPage('chat',this)">Chat</button>
-    <button onclick="showPage('skills',this)">Skills</button>
-    <button onclick="showPage('memory',this)">Memory</button>
-    <button onclick="showPage('security',this)">Security</button>
-    <button onclick="showPage('settings',this)">Settings</button>
-    <button onclick="showPage('logs',this)">Logs</button>
-    <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">☀️</button>
+    <button class="active" id="nav-home">Home</button>
+    <button id="nav-chat">Chat</button>
+    <button id="nav-skills">Skills</button>
+    <button id="nav-memory">Memory</button>
+    <button id="nav-security">Security</button>
+    <button id="nav-settings">Settings</button>
+    <button id="nav-logs">Logs</button>
+    <button class="theme-btn" id="theme-btn">☀️</button>
   </nav>
 </header>
 <main>
@@ -136,13 +41,13 @@
     <h3>Status</h3>
     <div class="status-row"><div class="dot green"></div>Agent running</div>
     <div class="status-row"><div class="dot blue"></div>Model: <span id="home-model">deepseek-v4-pro</span> via LiteLLM</div>
-    <div class="status-row"><div class="dot green"></div>Telegram: @NosisTechBot — active</div>
+    <div class="status-row"><div class="dot yellow" id="home-telegram-dot"></div><span id="home-telegram-status">Telegram: checking...</span></div>
     <div class="status-row"><div class="dot green"></div>Voice: <span id="home-voice-label">Whisper STT + Kokoro TTS (bm_lewis)</span></div>
     <div class="status-row"><div class="dot green"></div>Memory: SQLite — persistent</div>
   </div>
 
   <div class="card">
-    <h3>System Health <button class="refresh-btn" onclick="loadHealth()">↻ Refresh</button></h3>
+    <h3>System Health <button class="refresh-btn" id="refresh-health-btn">↻ Refresh</button></h3>
     <div class="status-row"><div class="dot" id="health-bot-dot"></div>Bot: <span id="health-bot">—</span></div>
     <div class="status-row"><div class="dot" id="health-litellm-dot"></div>LiteLLM: <span id="health-litellm">—</span></div>
     <div class="status-row"><div class="dot" id="health-memory-dot"></div>Memory: <span id="health-memory">—</span></div>
@@ -152,12 +57,32 @@
 
   <div class="card">
     <h3>💰 API Usage <span style="font-size:0.7rem;color:var(--text3);font-weight:400">(estimates)</span></h3>
-    <div id="token-usage"><span style="color:var(--text3)">Loading...</span></div>
-    <p style="font-size:0.7rem;color:var(--text3);margin-top:6px">⚠️ Estimates based on configured rates. Not a billing statement. <a href="#" onclick="document.querySelector('nav button:nth-child(6)').click();return false;" style="color:var(--link)">Configure rates →</a></p>
+    <div class="usage-layout">
+      <div class="usage-left">
+        <div id="token-usage"><span style="color:var(--text3)">Loading...</span></div>
+        <p style="font-size:0.7rem;color:var(--text3);margin-top:6px">⚠️ Estimates based on configured rates. Not a billing statement. <a href="#" id="configure-rates-link" style="color:var(--link)">Configure rates →</a></p>
+      </div>
+      <div class="usage-right">
+        <div class="chart-controls">
+          <div class="seg" id="chart-period">
+            <button type="button" data-period="day" class="active">Day</button>
+            <button type="button" data-period="week">Week</button>
+            <button type="button" data-period="month">Month</button>
+            <button type="button" data-period="year">Year</button>
+          </div>
+          <div class="seg" id="chart-metric">
+            <button type="button" data-metric="cost" class="active">$</button>
+            <button type="button" data-metric="tokens">Tokens</button>
+          </div>
+        </div>
+        <div id="usage-chart"><span style="color:var(--text3)">Loading...</span></div>
+        <div id="chart-legend" class="chart-legend"></div>
+      </div>
+    </div>
   </div>
 
   <div class="card">
-    <h3>System Resources <button class="refresh-btn" onclick="loadSystem()">↻ Refresh</button></h3>
+    <h3>System Resources <button class="refresh-btn" id="refresh-system-btn">↻ Refresh</button></h3>
     <div class="stat-grid">
       <div class="stat-box"><div class="stat-val" id="s-cpu">—</div><div class="stat-lbl">CPU %</div></div>
       <div class="stat-box"><div class="stat-val" id="s-mem-used">—</div><div class="stat-lbl">RAM Used (MB)</div></div>
@@ -185,10 +110,13 @@
     <div class="msg-list" id="chat-messages" style="flex:1;padding:16px;overflow-y:auto;">
       <div style="color:var(--text3);font-size:0.85rem">Send a message to start chatting with Korvin.</div>
     </div>
+    <div id="voice-player-slot" style="padding:0 16px;"></div>
     <div style="border-top:1px solid var(--border);padding:12px;display:flex;gap:8px;">
-      <input class="search-input" id="chat-input" type="text" placeholder="Type a message…" style="margin:0;flex:1;" onkeydown="if(event.key==='Enter')sendChat()">
-      <button class="apply-btn" id="mic-btn" onclick="toggleMic()" style="margin:0;white-space:nowrap;min-width:44px;" title="Hold to record voice message">🎤</button>
-      <button class="apply-btn" id="chat-send-btn" onclick="sendChat()" style="margin:0;white-space:nowrap;">Send</button>
+      <input class="search-input" id="chat-input" type="text" placeholder="Type a message…" style="margin:0;flex:1;">
+      <button class="apply-btn" id="mic-btn" style="margin:0;white-space:nowrap;min-width:44px;" title="Hold to record voice message">🎤</button>
+      <button class="apply-btn" id="live-btn" style="margin:0;white-space:nowrap;min-width:76px;" title="Start live voice conversation">🔴 Live</button>
+      <span id="voice-status" style="align-self:center;color:var(--text3);font-size:0.85rem;min-width:0;"></span>
+      <button class="apply-btn" id="chat-send-btn" style="margin:0;white-space:nowrap;">Send</button>
     </div>
   </div>
 </div>
@@ -198,15 +126,8 @@
   <h2>Skills</h2>
   <div class="card">
     <h3>Installed Skills</h3>
-    <span class="skill-chip">🔍 web-researcher</span>
-    <span class="skill-chip">⚙️ task-automator</span>
-    <span class="skill-chip">📝 document-drafter</span>
-    <span class="skill-chip">🛡️ security-monitor</span>
-    <span class="skill-chip">📺 youtube-transcriber</span>
-    <span class="skill-chip">🔒 dep-scan</span>
-    <span class="skill-chip">📅 daily-digest</span>
-    <span class="skill-chip">🎯 goal-heartbeat</span>
-    <span class="skill-chip" style="opacity:0.5">📬 inbox-summarizer (pending)</span>
+    <div id="skills-list"><span style="color:var(--text3)">Loading skills...</span></div>
+    <p style="margin-top:10px;font-size:0.8rem;color:var(--text3)"><span id="skills-count">0</span> installed skills detected.</p>
     <p style="margin-top:14px;font-size:0.83rem;color:var(--text3);font-style:italic">Use <code>/skills list</code> in the chat or via your connected channel for the full command reference.</p>
   </div>
 </div>
@@ -215,11 +136,11 @@
 <div id="page-memory" class="page">
   <h2>Memory</h2>
   <div class="card">
-    <h3>Context Window <span id="cw-tag" class="tag ok">OK</span> <button class="refresh-btn" onclick="loadContextWindow('cw-memory')">↻ Refresh</button></h3>
+    <h3>Context Window <span id="cw-tag" class="tag ok">OK</span> <button class="refresh-btn" id="refresh-context-btn">↻ Refresh</button></h3>
     <div id="cw-memory"><div class="cw-meta">Loading...</div></div>
     <div class="slider-row">
       <span>Message limit:</span>
-      <input type="range" id="cw-slider" min="1" max="500" value="46" oninput="updateSlider(this.value)">
+      <input type="range" id="cw-slider" min="1" max="500" value="46">
       <span id="cw-slider-val" style="min-width:36px;color:var(--text);font-weight:600">46</span>
     </div>
     <div class="mode-toggle">
@@ -232,7 +153,7 @@
     </div>
     <div style="margin-top:14px">
       <span class="field-label">Memory strategy:</span>
-      <select class="strategy-select" id="strategy-select" onchange="onStrategyChange(this.value)">
+      <select class="strategy-select" id="strategy-select">
         <option value="sliding_window">Sliding Window — auto-prune oldest</option>
         <option value="summarize">Summarize — compress then prune</option>
         <option value="hard_stop">Hard Stop — pause agent at limit</option>
@@ -254,16 +175,16 @@
       <input class="field-input" type="number" id="max-tokens-input" value="128000" min="1000" step="1000">
       <div style="font-size:0.75rem;color:var(--text3);margin-top:4px">8000 (Llama local) · 32000 (Mistral) · 128000 (DeepSeek/GPT-4o) · 200000 (Claude) · 1000000 (Gemini)</div>
     </div>
-    <button class="apply-btn" id="apply-btn" onclick="applyLimit()" disabled>Apply to Agent</button>
-    <button class="prune-btn" id="prune-btn" onclick="pruneNow()">✂ Prune Now</button>
+    <button class="apply-btn" id="apply-btn" disabled>Apply to Agent</button>
+    <button class="prune-btn" id="prune-btn">✂ Prune Now</button>
     <div class="feedback" id="limit-feedback"></div>
     <p style="font-size:0.75rem;color:var(--text3);margin-top:10px">Toggle to <strong>Apply to agent</strong> to save settings. <strong>Prune Now</strong> immediately enforces the current limit.</p>
   </div>
   <div class="card">
-    <h3>Conversation History <button class="refresh-btn" onclick="loadMemory()">↻ Refresh</button></h3>
-    <input class="search-input" id="mem-search" placeholder="Search messages..." oninput="filterMessages()">
+    <h3>Conversation History <button class="refresh-btn" id="refresh-memory-btn">↻ Refresh</button></h3>
+    <input class="search-input" id="mem-search" placeholder="Search messages...">
     <div class="msg-list" id="msg-list"><div style="color:var(--text3);font-size:0.85rem">Loading...</div></div>
-    <button class="export-btn" onclick="exportChat()">⬇ Download Chat History</button>
+    <button class="export-btn" id="export-chat-btn">⬇ Download Chat History</button>
     <div class="feedback" id="export-feedback"></div>
   </div>
 </div>
@@ -273,16 +194,16 @@
   <h2>Security</h2>
   <div class="card">
     <h3>Security Status</h3>
-    <div class="status-row"><div class="dot green"></div>🛡️ Injection defender — active</div>
+    <div class="status-row"><div class="dot green"></div><span id="defender-status">Injection defender: checking...</span></div>
+    <div class="status-row"><div class="dot blue"></div>Blocked attempts: <span id="blocked-count">0</span></div>
   </div>
   <div class="card">
     <h3>Recent Threats</h3>
-    <div class="threat-item">No blocked injection attempts yet.</div>
-    <p style="font-size:0.83rem;color:var(--text3);margin-top:8px">Last monitor run: on demand via threat-monitor.js</p>
+    <div id="recent-threats">Loading...</div>
   </div>
   <div class="card" style="border-color:var(--red)">
     <h3>⚠️ Kill Switch</h3>
-    <button class="kill-btn" id="kill-btn" onclick="toggleKill()">Loading...</button>
+    <button class="kill-btn" id="kill-btn">Loading...</button>
     <p class="kill-status" id="kill-status">Checking agent mode...</p>
     <p style="font-size:0.8rem;color:var(--text3);margin-top:10px">The kill switch instantly locks all agent actions to read-only.</p>
   </div>
@@ -303,7 +224,7 @@
   <div class="card">
     <h3>💲 API Pricing <span style="font-size:0.7rem;color:var(--text3);font-weight:400">(per 1M tokens)</span></h3>
     <div id="rates-fields"><span style="color:var(--text3)">Loading...</span></div>
-    <button class="apply-btn" id="save-rates-btn" onclick="saveRates()" style="margin-top:12px">Save Rates</button>
+    <button class="apply-btn" id="save-rates-btn" style="margin-top:12px">Save Rates</button>
     <div class="feedback" id="rates-feedback"></div>
     <p style="font-size:0.7rem;color:var(--text3);margin-top:6px">Rates update the cost estimates on the Home page. Local models are always $0.00.</p>
   </div>
@@ -315,7 +236,7 @@
       <input class="field-input" type="number" id="chat-timeout-input" value="180" min="10" step="10" style="width:120px;margin:0">
       <span style="color:var(--text3);font-size:0.8rem">seconds</span>
     </div>
-    <button class="apply-btn" id="save-timeout-btn" onclick="saveTimeout()" style="margin-top:12px">Save Timeout</button>
+    <button class="apply-btn" id="save-timeout-btn" style="margin-top:12px">Save Timeout</button>
     <div class="feedback" id="timeout-feedback"></div>
     <p style="font-size:0.7rem;color:var(--text3);margin-top:6px">How long the dashboard waits for an AI response before showing a "took too long" error. If you see that error often, increase this number. Start with 240 for complex questions.</p>
   </div>
@@ -327,14 +248,14 @@
       <input class="field-input" type="number" id="token-warning-input" value="5000" min="100" step="100" style="width:120px;margin:0">
       <span style="color:var(--text3);font-size:0.8rem">tokens</span>
     </div>
-    <button class="apply-btn" id="save-warning-btn" onclick="saveWarning()" style="margin-top:12px">Save Threshold</button>
+    <button class="apply-btn" id="save-warning-btn" style="margin-top:12px">Save Threshold</button>
     <div class="feedback" id="warning-feedback"></div>
     <p style="font-size:0.7rem;color:var(--text3);margin-top:6px">When a single response uses more tokens than this, a cost warning appears in chat. Raise it if warnings are too frequent. Set to 999999 to effectively disable.</p>
   </div>
 
   <div class="card">
     <h3>Connected Channels</h3>
-    <div class="status-row"><div class="dot green"></div>Telegram: @NosisTechBot — connected</div>
+    <div class="status-row"><div class="dot yellow" id="settings-telegram-dot"></div><span id="settings-telegram-status">Telegram: checking...</span></div>
     <div class="status-row"><div class="dot yellow"></div>WhatsApp: pending setup</div>
     <div class="status-row"><div class="dot yellow"></div>Discord: pending setup</div>
     <div class="status-row"><div class="dot yellow"></div>Signal: pending setup</div>
@@ -342,24 +263,28 @@
 
   <div class="card">
     <h3>Voice</h3>
-    <div class="status-row"><div class="dot green"></div>STT: <span id="settings-stt-label">Whisper base model</span> — active</div>
+    <div class="status-row"><div class="dot green"></div>STT: <span id="settings-stt-label">Whisper tiny.en</span> — active</div>
     <div class="status-row"><div class="dot green"></div>TTS: <span id="settings-tts-label">Kokoro bm_lewis</span> — active</div>
     <div style="margin-top:14px">
       <label style="font-size:0.82rem;color:var(--text2)">STT Model</label>
       <div class="status-row" style="margin-top:6px;gap:8px">
-        <select id="stt-model-select" class="field-input" style="width:auto;padding:4px 8px" onchange="updateSttWarning(this.value)">
-          <option value="tiny.en">tiny.en — fastest, ~95 MB RAM, English only (default)</option>
-          <option value="tiny">tiny — fastest, ~95 MB RAM, multilingual</option>
-          <option value="base.en">base.en — ~200 MB RAM, English only</option>
-          <option value="base">base — ~200 MB RAM, multilingual</option>
-          <option value="small.en">small.en — ~500 MB RAM, English only ⚠</option>
-          <option value="small">small — ~500 MB RAM, multilingual ⚠</option>
-          <option value="distil-large-v3">distil-large-v3 — highest quality, 2 GB+ RAM ⛔</option>
+        <select id="stt-model-select" class="field-input" style="width:auto;padding:4px 8px">
+          <option value="">Loading...</option>
         </select>
-        <button class="apply-btn" onclick="saveSttModel()" style="margin:0">Save</button>
+        <button class="apply-btn" id="save-stt-model-btn" style="margin:0">Save</button>
       </div>
       <div id="stt-model-warning" style="display:none;margin-top:8px;padding:8px;border-radius:6px;font-size:0.78rem"></div>
       <div class="feedback" id="stt-model-feedback"></div>
+    </div>
+    <div style="margin-top:14px">
+      <label style="font-size:0.82rem;color:var(--text2)">TTS Voice</label>
+      <div class="status-row" style="margin-top:6px;gap:8px">
+        <select id="tts-voice-select" class="field-input" style="width:auto;padding:4px 8px">
+          <option value="">Loading...</option>
+        </select>
+        <button class="apply-btn" id="save-tts-voice-btn" style="margin:0">Save</button>
+      </div>
+      <div class="feedback" id="tts-voice-feedback"></div>
     </div>
     <div class="status-row"><div class="dot yellow"></div>Wake word: "Hey Korvin" via Porcupine — pending</div>
   </div>
@@ -369,740 +294,14 @@
 <div id="page-logs" class="page">
   <h2>Logs</h2>
   <div class="card">
-    <h3>System Log <button class="refresh-btn" onclick="loadLogs()">↻ Refresh</button></h3>
+    <h3>System Log <button class="refresh-btn" id="refresh-logs-btn">↻ Refresh</button></h3>
     <div class="log-box" id="log-box">Loading...</div>
   </div>
 </div>
 
 </main>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>
-const API_KEY = '__KORVIN_API_KEY__';
-const AUTH = { 'X-Korvin-Key': API_KEY };
-
-let allMessages = [];
-let _micRecorder = null;
-let _micChunks = [];
-let _micStream = null;
-
-function toggleMic() {
-  if (_micRecorder && _micRecorder.state === 'recording') {
-    _micRecorder.stop();
-    return;
-  }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('Microphone not supported in this browser or context (HTTPS required).');
-    return;
-  }
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
-    _micStream = stream;
-    _micChunks = [];
-    _micRecorder = new MediaRecorder(stream);
-    _micRecorder.ondataavailable = function(e) { if (e.data.size > 0) _micChunks.push(e.data); };
-    _micRecorder.onstop = function() {
-      if (_micStream) { _micStream.getTracks().forEach(function(t) { t.stop(); }); _micStream = null; }
-      const blob = new Blob(_micChunks, { type: 'audio/webm' });
-      _micChunks = [];
-      _micRecorder = null;
-      sendVoiceChat(blob);
-    };
-    _micRecorder.start();
-    const btn = document.getElementById('mic-btn');
-    btn.textContent = '⏹';
-    btn.style.background = '#c0392b';
-  }).catch(function(err) {
-    alert('Microphone access denied: ' + err.message);
-  });
-}
-
-async function sendVoiceChat(blob) {
-  const btn = document.getElementById('mic-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳';
-  btn.style.background = '';
-  try {
-    const form = new FormData();
-    form.append('file', blob, 'voice.webm');
-    const r = await fetch('/api/voice/chat', { method: 'POST', headers: AUTH, body: form });
-    const d = await r.json();
-    if (d.error && !d.transcript) {
-      appendChatMessage('system', 'Voice error: ' + d.error);
-      return;
-    }
-    if (d.transcript) appendChatMessage('user', d.transcript, 'dashboard-voice');
-    if (d.reply) {
-      appendChatMessage('assistant', d.reply, 'dashboard-voice');
-      document.getElementById('chat-messages').scrollTop = 99999;
-    }
-    if (d.audio_base64) {
-      try {
-        const bytes = atob(d.audio_base64);
-        const arr = new Uint8Array(bytes.length);
-        for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-        const mimeType = (d.audio_format === 'mp3') ? 'audio/mpeg' : 'audio/wav';
-        const audioBlob = new Blob([arr], { type: mimeType });
-        const url = URL.createObjectURL(audioBlob);
-        const audio = new Audio(url);
-        audio.play();
-        audio.onended = function() { URL.revokeObjectURL(url); };
-      } catch(e) { /* audio playback failed silently */ }
-    }
-  } catch(e) {
-    appendChatMessage('system', 'Voice chat error: ' + e.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🎤';
-    btn.style.background = '';
-  }
-}
-let killActive = false;
-let cwLimit = 46;
-let configMaxTokens = 128000;
-let autoRefreshTimer = null;
-let chatRefreshTimer = null;
-let chatRequestCount = 0;
-let chatIsLoading = false;
-let modelList = [];
-const CHAT_RATE_LIMIT = 10;
-
-// ── Theme ──────────────────────────────────────────────────────────
-function applyTheme(light) {
-  document.body.classList.toggle('light', light);
-  document.getElementById('theme-btn').textContent = light ? '🌙' : '☀️';
-}
-function toggleTheme() {
-  const isLight = !document.body.classList.contains('light');
-  localStorage.setItem('korvin-theme', isLight ? 'light' : 'dark');
-  applyTheme(isLight);
-}
-
-function updateSttWarning(model) {
-  const warn = document.getElementById('stt-model-warning');
-  if (!warn) return;
-  const heavy = ['distil-large-v3', 'large-v2', 'large-v3', 'medium', 'medium.en'];
-  const moderate = ['small', 'small.en'];
-  if (heavy.includes(model)) {
-    warn.style.cssText = 'display:block;margin-top:8px;padding:8px;border-radius:6px;font-size:0.78rem;background:#5a1a1a;color:#ff9999';
-    warn.innerHTML = '&#9888; <strong>Hardware warning:</strong> ' + model + ' requires 2–4 GB+ RAM. On a 2 GB VPS this will cause out-of-memory crashes or transcription timeouts. Upgrade RAM before switching.';
-  } else if (moderate.includes(model)) {
-    warn.style.cssText = 'display:block;margin-top:8px;padding:8px;border-radius:6px;font-size:0.78rem;background:#3a3a00;color:#ffdd88';
-    warn.innerHTML = '&#9888; <strong>Note:</strong> ' + model + ' requires ~500 MB RAM. May run slowly or fail on a VPS with less than 1 GB free RAM.';
-  } else {
-    warn.style.display = 'none';
-  }
-}
-async function saveSttModel() {
-  const sel = document.getElementById('stt-model-select');
-  const fb = document.getElementById('stt-model-feedback');
-  if (!sel) return;
-  try {
-    const r = await fetch('/api/settings/stt-model', {
-      method: 'POST',
-      headers: { ...AUTH, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: sel.value })
-    });
-    if (r.ok) {
-      fb.textContent = 'Saved. New model loads on next voice request.';
-      fb.className = 'feedback ok';
-      await loadVoiceStatus();
-    } else {
-      fb.textContent = 'Error saving model.';
-      fb.className = 'feedback err';
-    }
-  } catch(e) {
-    fb.textContent = 'Error: ' + e.message;
-    fb.className = 'feedback err';
-  }
-}
-
-applyTheme(localStorage.getItem('korvin-theme') === 'light');
-
-// ── Navigation ─────────────────────────────────────────────────────
-function showPage(id, btn) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('nav button:not(.theme-btn)').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + id).classList.add('active');
-  btn.classList.add('active');
-  clearInterval(autoRefreshTimer);
-  clearInterval(chatRefreshTimer);
-  if (id === 'home') {
-    loadSystem(); loadActiveModelStatus(); loadHealth(); loadTokenUsage(); loadContextWindow('cw-home');
-    autoRefreshTimer = setInterval(() => { loadSystem(); loadHealth(); loadTokenUsage(); loadContextWindow('cw-home'); }, 10000);
-  }
-  if (id === 'memory') { loadMemoryConfig(); loadMemory(); loadContextWindow('cw-memory'); }
-  if (id === 'logs') loadLogs();
-  if (id === 'security') loadKillswitch();
-  if (id === 'settings') { loadModels(); loadTokenRates(); loadTimeout(); loadWarning(); }
-  if (id === 'chat') {
-    chatRequestCount = 0;
-    loadChatHistory();
-    chatRefreshTimer = setInterval(loadChatHistory, 5000);
-  }
-}
-
-// ── System ─────────────────────────────────────────────────────────
-async function loadSystem() {
-  try {
-    const r = await fetch('/api/system', { headers: AUTH });
-    const d = await r.json();
-    document.getElementById('s-cpu').textContent = d.cpu_pct ? d.cpu_pct + '%' : '—';
-    document.getElementById('s-mem-used').textContent = d.mem_used_mb || '—';
-    document.getElementById('s-disk-used').textContent = d.disk_used || '—';
-    document.getElementById('s-disk-free').textContent = d.disk_free || '—';
-    if (d.mem_total_mb && d.mem_used_mb) {
-      const memPct = Math.round((parseInt(d.mem_used_mb) / parseInt(d.mem_total_mb)) * 100);
-      document.getElementById('s-mem-pct').textContent = memPct;
-      const barMem = document.getElementById('bar-mem');
-      barMem.style.width = memPct + '%';
-      barMem.className = 'bar ' + (memPct >= 80 ? 'critical' : memPct >= 60 ? 'warning' : 'ok');
-    }
-    if (d.disk_pct) {
-      const diskPct = parseInt(d.disk_pct);
-      document.getElementById('s-disk-pct').textContent = d.disk_pct;
-      const barDisk = document.getElementById('bar-disk');
-      barDisk.style.width = diskPct + '%';
-      barDisk.className = 'bar ' + (diskPct >= 80 ? 'critical' : diskPct >= 60 ? 'warning' : 'ok');
-    }
-  } catch(e) { console.error('System load error:', e); }
-}
-
-// ── Health ─────────────────────────────────────────────────────────
-async function loadHealth() {
-  try {
-    const r = await fetch('/api/health');
-    const d = await r.json();
-    const botOk = d.bot === 'running';
-    document.getElementById('health-bot').textContent = d.bot;
-    document.getElementById('health-bot-dot').className = 'dot ' + (botOk ? 'green' : 'red');
-    const litellmOk = d.litellm === 'reachable';
-    document.getElementById('health-litellm').textContent = d.litellm;
-    document.getElementById('health-litellm-dot').className = 'dot ' + (litellmOk ? 'green' : 'red');
-    const backupOk = d.backup_hours !== null && d.backup_hours < 7;
-    document.getElementById('health-memory').textContent = d.memory_total + ' messages';
-    document.getElementById('health-memory-dot').className = 'dot green';
-    document.getElementById('health-backup').textContent = d.backup_last ? d.backup_last + ' (' + (d.backup_hours || '?') + 'h ago)' : 'none';
-    document.getElementById('health-backup-dot').className = 'dot ' + (backupOk ? 'green' : 'yellow');
-    const overallOk = d.status === 'ok';
-    document.getElementById('health-overall').textContent = d.status;
-    document.getElementById('health-overall-dot').className = 'dot ' + (overallOk ? 'green' : 'red');
-  } catch(e) { /* ignore */ }
-}
-
-async function loadVoiceStatus() {
-  try {
-    const r = await fetch('/api/voice/status', { headers: AUTH });
-    const d = await r.json();
-    const homeLabel = document.getElementById('home-voice-label');
-    const sttLabel = document.getElementById('settings-stt-label');
-    const ttsLabel = document.getElementById('settings-tts-label');
-    if (homeLabel) homeLabel.textContent = (d.stt_label || 'Whisper') + ' + Kokoro TTS (bm_lewis)';
-    if (sttLabel) sttLabel.textContent = d.stt_label || 'Whisper base model';
-    if (ttsLabel) ttsLabel.textContent = d.tts_label || 'Kokoro bm_lewis';
-    const sttSel = document.getElementById('stt-model-select');
-    const sttWarn = document.getElementById('stt-model-warning');
-    if (sttSel && d.stt_model) {
-      sttSel.value = d.stt_model;
-      if (sttWarn) sttWarn.style.display = d.stt_model === 'distil-large-v3' ? 'block' : 'none';
-    }
-  } catch(e) { /* keep defaults */ }
-}
-
-// ── Token Usage ────────────────────────────────────────────────────
-async function loadTokenUsage() {
-  try {
-    const r = await fetch('/api/token-usage', { headers: AUTH });
-    const d = await r.json();
-    document.getElementById('token-usage').innerHTML = `
-      <div class="status-row" style="margin-bottom:4px">Today: <strong>${d.today.tokens.toLocaleString()}</strong> tokens · ~<strong>$${d.today.cost.toFixed(4)}</strong></div>
-      <div class="status-row">This month: <strong>${d.month.tokens.toLocaleString()}</strong> tokens · ~<strong>$${d.month.cost.toFixed(4)}</strong></div>
-    `;
-  } catch(e) { /* ignore */ }
-}
-
-// ── Token Rates ────────────────────────────────────────────────────
-async function loadTokenRates() {
-  try {
-    const r = await fetch('/api/token-rates', { headers: AUTH });
-    const d = await r.json();
-    const labels = {
-      'deepseek-v4-pro': 'DeepSeek V4 Pro',
-      'deepseek-v4-flash': 'DeepSeek V4 Flash',
-      'gemini-flash': 'Gemini Flash',
-      'ollama-qwen': 'Local — Qwen 2.5',
-      'ollama-deepseek-coder': 'Local — DeepSeek Coder'
-    };
-    document.getElementById('rates-fields').innerHTML = Object.entries(d.rates).map(([key, val]) => {
-      const isLocal = key.startsWith('ollama-');
-      return `<div class="status-row">
-        <span style="min-width:180px">${labels[key] || key}</span>
-        <input class="field-input rate-input" type="number" step="0.01" min="0" value="${val}" data-model="${key}" style="width:100px;margin:0" ${isLocal ? 'disabled' : ''}>
-        <span style="color:var(--text3);font-size:0.8rem">${isLocal ? '(free)' : '/ 1M tokens'}</span>
-      </div>`;
-    }).join('');
-  } catch(e) { /* ignore */ }
-}
-
-async function saveRates() {
-  const fb = document.getElementById('rates-feedback');
-  const btn = document.getElementById('save-rates-btn');
-  const inputs = document.querySelectorAll('.rate-input:not([disabled])');
-  const rates = {};
-  inputs.forEach(inp => { rates[inp.dataset.model] = parseFloat(inp.value) || 0; });
-  try {
-    btn.disabled = true;
-    const r = await fetch('/api/token-rates', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...AUTH },
-      body: JSON.stringify({ rates })
-    });
-    if (r.status === 403) { fb.textContent = 'Auth error.'; fb.className = 'feedback err'; btn.disabled = false; return; }
-    fb.textContent = '✓ Rates saved.';
-    fb.className = 'feedback ok';
-    loadTokenUsage();
-  } catch(e) {
-    fb.textContent = 'Error: ' + e.message;
-    fb.className = 'feedback err';
-  }
-  btn.disabled = false;
-}
-
-// ── Chat Timeout ───────────────────────────────────────────────────
-async function loadTimeout() {
-  try {
-    const r = await fetch('/api/chat-timeout', { headers: AUTH });
-    const d = await r.json();
-    document.getElementById('chat-timeout-input').value = d.timeout;
-  } catch(e) { /* ignore */ }
-}
-
-async function saveTimeout() {
-  const fb = document.getElementById('timeout-feedback');
-  const btn = document.getElementById('save-timeout-btn');
-  const val = parseInt(document.getElementById('chat-timeout-input').value) || 180;
-  try {
-    btn.disabled = true;
-    const r = await fetch('/api/chat-timeout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...AUTH },
-      body: JSON.stringify({ timeout: val })
-    });
-    if (r.status === 403) { fb.textContent = 'Auth error.'; fb.className = 'feedback err'; btn.disabled = false; return; }
-    const d = await r.json();
-    fb.textContent = '✓ Timeout saved: ' + d.timeout + 's';
-    fb.className = 'feedback ok';
-  } catch(e) {
-    fb.textContent = 'Error: ' + e.message;
-    fb.className = 'feedback err';
-  }
-  btn.disabled = false;
-}
-
-// ── Token Warning Threshold ────────────────────────────────────────
-async function loadWarning() {
-  try {
-    const r = await fetch('/api/token-warning-threshold', { headers: AUTH });
-    const d = await r.json();
-    document.getElementById('token-warning-input').value = d.threshold;
-  } catch(e) { /* ignore */ }
-}
-
-async function saveWarning() {
-  const fb = document.getElementById('warning-feedback');
-  const btn = document.getElementById('save-warning-btn');
-  const val = parseInt(document.getElementById('token-warning-input').value) || 5000;
-  try {
-    btn.disabled = true;
-    const r = await fetch('/api/token-warning-threshold', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...AUTH },
-      body: JSON.stringify({ threshold: val })
-    });
-    if (r.status === 403) { fb.textContent = 'Auth error.'; fb.className = 'feedback err'; btn.disabled = false; return; }
-    const d = await r.json();
-    fb.textContent = '✓ Threshold saved: ' + d.threshold.toLocaleString() + ' tokens';
-    fb.className = 'feedback ok';
-  } catch(e) {
-    fb.textContent = 'Error: ' + e.message;
-    fb.className = 'feedback err';
-  }
-  btn.disabled = false;
-}
-
-// ── Active Model Status ────────────────────────────────────────────
-async function loadActiveModelStatus() {
-  try {
-    const r = await fetch('/api/active-model', { headers: AUTH });
-    const d = await r.json();
-    const el = document.getElementById('home-model');
-    if (el) el.textContent = d.active_model;
-  } catch(e) { /* ignore */ }
-}
-
-// ── Context Window ─────────────────────────────────────────────────
-async function loadContextWindow(targetId) {
-  try {
-    const r = await fetch(`/api/memory/context-window?limit=${cwLimit}&max_tokens=${configMaxTokens}`, { headers: AUTH });
-    const d = await r.json();
-    const pct = d.pct_messages || 0;
-    const status = d.status || 'ok';
-    const tag = document.getElementById('cw-tag');
-    if (tag) { tag.textContent = status.toUpperCase(); tag.className = `tag ${status}`; }
-    document.getElementById(targetId).innerHTML = `
-      <div class="cw-meta">
-        Messages in context: <strong>${d.messages_used ?? 0}</strong> / ${d.messages_limit ?? '?'}
-        &nbsp;·&nbsp; ~<strong>${d.tokens_estimate ?? 0}</strong> tokens used
-        &nbsp;·&nbsp; <strong>${pct}%</strong> of message limit
-        &nbsp;·&nbsp; <strong>${d.pct_tokens ?? 0}%</strong> of ${(configMaxTokens/1000).toFixed(0)}k token cap
-      </div>
-      <div class="bar-wrap"><div class="bar ${status}" style="width:${Math.min(pct,100)}%"></div></div>
-      <div class="bar-label"><span>0%</span><span>60% warn</span><span>80% critical</span><span>100%</span></div>
-    `;
-  } catch(e) { console.error('Context window error:', e); }
-}
-
-// ── Memory Config ──────────────────────────────────────────────────
-async function loadMemoryConfig() {
-  try {
-    const r = await fetch('/api/memory/limit', { headers: AUTH });
-    const d = await r.json();
-    cwLimit = d.memory_limit;
-    configMaxTokens = d.max_tokens;
-    document.getElementById('cw-slider').value = cwLimit;
-    document.getElementById('cw-slider-val').textContent = cwLimit;
-    document.getElementById('max-tokens-input').value = configMaxTokens;
-    document.getElementById('strategy-select').value = d.memory_strategy;
-    if (d.summarizer_url) document.getElementById('summarizer-url').value = d.summarizer_url;
-    if (d.summarizer_model) document.getElementById('summarizer-model').value = d.summarizer_model;
-    onStrategyChange(d.memory_strategy);
-    loadContextWindow('cw-memory');
-  } catch(e) { console.error('Memory config load error:', e); }
-}
-
-function onStrategyChange(val) {
-  document.getElementById('summarizer-fields').style.display = val === 'summarize' ? 'block' : 'none';
-  document.getElementById('apply-btn').disabled = !document.getElementById('apply-toggle').checked;
-}
-
-function updateSlider(val) {
-  cwLimit = parseInt(val);
-  document.getElementById('cw-slider-val').textContent = val;
-  document.getElementById('apply-btn').disabled = !document.getElementById('apply-toggle').checked;
-  loadContextWindow('cw-memory');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('apply-toggle').addEventListener('change', function() {
-    document.getElementById('apply-btn').disabled = !this.checked;
-    const fb = document.getElementById('limit-feedback');
-    fb.textContent = this.checked ? 'Apply mode active — changes will be saved to agent config.' : '';
-    fb.className = 'feedback ok';
-  });
-});
-
-async function applyLimit() {
-  const limit = parseInt(document.getElementById('cw-slider').value);
-  const maxTokens = parseInt(document.getElementById('max-tokens-input').value);
-  const strategy = document.getElementById('strategy-select').value;
-  const summUrl = document.getElementById('summarizer-url').value;
-  const summModel = document.getElementById('summarizer-model').value;
-  const fb = document.getElementById('limit-feedback');
-  try {
-    const r = await fetch('/api/memory/limit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...AUTH },
-      body: JSON.stringify({ memory_limit: limit, max_tokens: maxTokens, memory_strategy: strategy, summarizer_url: summUrl, summarizer_model: summModel })
-    });
-    if (r.status === 403) { fb.textContent = 'Auth error.'; fb.className = 'feedback err'; return; }
-    const d = await r.json();
-    configMaxTokens = d.max_tokens;
-    const strategyLabel = strategy === 'summarize' ? `summarize (${summModel})` : strategy;
-    fb.textContent = `✓ Saved — limit: ${d.memory_limit} msgs · ${(d.max_tokens/1000).toFixed(0)}k tokens · strategy: ${strategyLabel}`;
-    fb.className = 'feedback ok';
-    loadContextWindow('cw-memory');
-  } catch(e) {
-    fb.textContent = 'Error: ' + e.message;
-    fb.className = 'feedback err';
-  }
-}
-
-async function pruneNow() {
-  const fb = document.getElementById('limit-feedback');
-  const btn = document.getElementById('prune-btn');
-  btn.disabled = true;
-  btn.textContent = 'Pruning...';
-  try {
-    const r = await fetch('/api/memory/prune', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...AUTH },
-      body: JSON.stringify({ chat_id: '8023887825' })
-    });
-    if (r.status === 403) { fb.textContent = 'Auth error.'; fb.className = 'feedback err'; btn.disabled = false; btn.textContent = '✂ Prune Now'; return; }
-    const d = await r.json();
-    fb.textContent = d.pruned > 0 ? `✓ Pruned ${d.pruned} messages. Limit: ${d.limit}.` : `✓ Nothing to prune — already within limit of ${d.limit}.`;
-    fb.className = 'feedback ok';
-    loadMemory();
-    loadContextWindow('cw-memory');
-  } catch(e) {
-    fb.textContent = 'Error: ' + e.message;
-    fb.className = 'feedback err';
-  }
-  btn.disabled = false;
-  btn.textContent = '✂ Prune Now';
-}
-
-// ── Conversation History ───────────────────────────────────────────
-async function loadMemory() {
-  try {
-    const r = await fetch('/api/memory/recent?limit=30', { headers: AUTH });
-    const d = await r.json();
-    allMessages = d.messages || [];
-    renderMessages(allMessages);
-  } catch(e) {
-    document.getElementById('msg-list').innerHTML = '<p style="color:var(--red);font-size:0.85rem">Error loading memory.</p>';
-  }
-}
-
-function renderMessages(msgs) {
-  const el = document.getElementById('msg-list');
-  if (!msgs.length) { el.innerHTML = '<p style="color:var(--text3);font-size:0.85rem">No conversations stored yet.</p>'; return; }
-  el.innerHTML = msgs.map(m => {
-    const isSummary = m.role === 'system' && m.content.startsWith('[SUMMARY]');
-    const content = isSummary ? m.content.replace('[SUMMARY]', '').trim() : m.content;
-    const roleLabel = isSummary ? '<span class="summary-badge">SUMMARY</span>' : m.role;
-    return `<div class="msg ${m.role}${isSummary ? ' summary' : ''}">
-      <div class="msg-role">${roleLabel} &middot; ${m.timestamp ? m.timestamp.slice(0,16).replace('T',' ') : 'unknown'}</div>
-      ${typeof marked !== 'undefined' ? marked.parse(content) : escapeHtml(content).replace(/\n/g, '<br>')}
-    </div>`;
-  }).join('');
-  el.scrollTop = el.scrollHeight;
-}
-
-function filterMessages() {
-  const q = document.getElementById('mem-search').value.toLowerCase();
-  renderMessages(q ? allMessages.filter(m => m.content.toLowerCase().includes(q)) : allMessages);
-}
-
-async function exportChat() {
-  const fb = document.getElementById('export-feedback');
-  try {
-    const r = await fetch('/api/chat/export', { headers: AUTH });
-    if (r.status === 403) { fb.textContent = 'Auth error.'; fb.className = 'feedback err'; return; }
-    const blob = await r.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'korvin-chat-history-' + new Date().toISOString().slice(0,10) + '.json';
-    a.click();
-    URL.revokeObjectURL(url);
-    fb.textContent = '✓ Download started.';
-    fb.className = 'feedback ok';
-  } catch(e) {
-    fb.textContent = 'Error: ' + e.message;
-    fb.className = 'feedback err';
-  }
-}
-
-// ── Logs ───────────────────────────────────────────────────────────
-async function loadLogs() {
-  const box = document.getElementById('log-box');
-  box.textContent = 'Loading...';
-  try {
-    const r = await fetch('/api/logs?lines=100', { headers: AUTH });
-    if (r.status === 403) { box.textContent = 'Auth error — key mismatch.'; return; }
-    const d = await r.json();
-    if (!d.lines || !d.lines.length) { box.textContent = 'No log entries found.'; return; }
-    box.innerHTML = d.lines.map(line => {
-      const cls = line.includes('ERROR') ? 'error' : line.includes('WARNING') ? 'warn' : 'info';
-      return `<span class="log-line ${cls}">${escapeHtml(line)}</span>`;
-    }).join('\n');
-    box.scrollTop = box.scrollHeight;
-  } catch(e) { box.textContent = 'Failed to load logs: ' + e.message; }
-}
-
-// ── Kill Switch ────────────────────────────────────────────────────
-async function loadKillswitch() {
-  try {
-    const r = await fetch('/api/killswitch', { headers: AUTH });
-    const d = await r.json();
-    killActive = d.killswitch;
-    renderKillswitch();
-  } catch(e) { console.error('Killswitch load error:', e); }
-}
-
-function renderKillswitch() {
-  const btn = document.getElementById('kill-btn');
-  const status = document.getElementById('kill-status');
-  if (killActive) {
-    btn.textContent = '🔴 Read-Only Mode ON — Click to Disable';
-    btn.style.background = '#388bfd';
-    status.textContent = 'Agent is locked to read-only. No write actions will execute.';
-    status.style.color = '#388bfd';
-  } else {
-    btn.textContent = '🟢 Read-Only Mode OFF — Click to Enable';
-    btn.style.background = '#da3633';
-    status.textContent = 'Agent is running normally.';
-    status.style.color = '#2ea043';
-  }
-}
-
-async function toggleKill() {
-  try {
-    const r = await fetch('/api/killswitch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...AUTH },
-      body: JSON.stringify({ enabled: !killActive })
-    });
-    if (r.status === 403) { document.getElementById('kill-status').textContent = 'Auth error.'; return; }
-    const d = await r.json();
-    killActive = d.killswitch;
-    renderKillswitch();
-  } catch(e) { document.getElementById('kill-status').textContent = 'Error: ' + e.message; }
-}
-
-// ── Model Switcher ─────────────────────────────────────────────────
-async function loadModels() {
-  try {
-    const r = await fetch('/api/models', { headers: AUTH });
-    const d = await r.json();
-    modelList = d.models;
-    renderModelButtons(d.models, d.active);
-  } catch(e) {
-    document.getElementById('active-model-badge').textContent = 'Error';
-  }
-}
-
-function renderModelButtons(models, activeSlug) {
-  const container = document.getElementById('model-switcher');
-  container.innerHTML = '';
-  models.forEach(m => {
-    const btn = document.createElement('button');
-    btn.className = 'model-btn';
-    btn.textContent = m.label;
-    btn.onclick = () => switchModel(m.slug, btn);
-    if (m.slug === activeSlug) btn.classList.add('active-model');
-    container.appendChild(btn);
-  });
-  const label = models.find(m => m.slug === activeSlug);
-  document.getElementById('active-model-badge').textContent = '● ' + (label ? label.label : activeSlug);
-}
-
-async function switchModel(slug, btn) {
-  const fb = document.getElementById('switch-feedback');
-  const buttons = document.querySelectorAll('.model-btn');
-  const label = modelList.find(m => m.slug === slug);
-  const name = label ? label.label : slug;
-  if (!confirm(`Switch to ${name}?`)) return;
-  buttons.forEach(b => b.disabled = true);
-  fb.textContent = `⏳ Switching to ${name}…`;
-  fb.className = 'switch-feedback loading';
-  try {
-    const r = await fetch('/api/switch-model', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...AUTH },
-      body: JSON.stringify({ model: slug })
-    });
-    if (r.status === 403) { fb.textContent = 'Auth error.'; fb.className = 'switch-feedback err'; buttons.forEach(b => b.disabled = false); return; }
-    if (!r.ok) {
-      const d = await r.json();
-      fb.textContent = '❌ ' + (d.detail || 'Switch failed');
-      fb.className = 'switch-feedback err';
-      buttons.forEach(b => b.disabled = false);
-      return;
-    }
-    const d = await r.json();
-    renderModelButtons(modelList, d.active_model);
-    fb.textContent = `✅ Switched to ${name} at ${new Date(d.switched_at).toLocaleTimeString()}`;
-    fb.className = 'switch-feedback ok';
-  } catch(e) {
-    fb.textContent = '❌ Error: ' + e.message;
-    fb.className = 'switch-feedback err';
-  }
-  buttons.forEach(b => b.disabled = false);
-}
-
-// ── Chat ───────────────────────────────────────────────────────────
-async function loadChatHistory() {
-  if (chatIsLoading) return;
-  const container = document.getElementById('chat-messages');
-  try {
-    const r = await fetch('/api/chat/history?limit=50', { headers: AUTH });
-    if (r.status === 403) return;
-    const d = await r.json();
-    if (d.messages && d.messages.length > 0) {
-      const wasAtBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 50;
-      container.innerHTML = '';
-      d.messages.forEach(m => appendChatMessage(m.role, m.content, m.source, m.timestamp));
-      if (wasAtBottom) container.scrollTop = container.scrollHeight;
-    }
-  } catch(e) { /* ignore */ }
-}
-
-async function sendChat() {
-  chatIsLoading = true;
-  const container = document.getElementById('chat-messages');
-  const input = document.getElementById('chat-input');
-  const btn = document.getElementById('chat-send-btn');
-  const msg = input.value.trim();
-  if (!msg) { chatIsLoading = false; return; }
-  chatRequestCount++;
-  if (chatRequestCount > CHAT_RATE_LIMIT) {
-    appendChatMessage('system', 'Rate limit reached. Please wait a minute.');
-    chatIsLoading = false;
-    return;
-  }
-  input.value = '';
-  btn.disabled = true;
-  appendChatMessage('user', msg, 'dashboard');
-  container.scrollTop = container.scrollHeight;
-  try {
-    const r = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...AUTH },
-      body: JSON.stringify({ message: msg })
-    });
-    const d = await r.json();
-    if (d.reply) {
-      appendChatMessage('assistant', d.reply, 'dashboard');
-      container.scrollTop = container.scrollHeight;
-    } else {
-      appendChatMessage('system', 'No response from Korvin.');
-    }
-  } catch(e) {
-    appendChatMessage('system', 'Error: ' + e.message);
-  }
-  chatIsLoading = false;
-  btn.disabled = false;
-}
-
-function appendChatMessage(role, content, source = null, timestamp = null) {
-  const container = document.getElementById('chat-messages');
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  const roleLabels = { user: 'YOU', assistant: 'KORVIN', system: 'SYSTEM' };
-  const sourceEmoji = source === 'dashboard' ? ' 💻' : source === 'telegram' ? ' 📱' : '';
-  const timeStr = timestamp
-    ? new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  div.innerHTML = `<div class="msg-role">${roleLabels[role] || role.toUpperCase()}${sourceEmoji} · ${timeStr}</div>${escapeHtml(content)}`;
-  container.appendChild(div);
-  const placeholder = container.querySelector('div[style]');
-  if (placeholder) placeholder.remove();
-}
-
-// ── Utilities ──────────────────────────────────────────────────────
-function escapeHtml(t) {
-  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-// ── Boot ───────────────────────────────────────────────────────────
-loadSystem();
-loadActiveModelStatus();
-loadHealth();
-loadTokenUsage();
-loadContextWindow('cw-home');
-loadVoiceStatus();
-autoRefreshTimer = setInterval(() => { loadSystem(); loadHealth(); loadTokenUsage(); loadContextWindow('cw-home'); }, 10000);
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/static/sw.js'); }
-</script>
+<script src="/static/vendor/marked.min.js" integrity="sha384-8RA8Ah4c9upJmKfg5nH01OgjZoQ3mRX+ngrKYWXQYj2dHYxFqYz8POSlii33f0wB"></script>
+<script src="/static/vendor/purify.min.js" integrity="sha384-C5g1ZoYBpnvKyArNZI21kaBEk3egHOYfHj/cUOHmyJ7CSDMyNMyM+STqfkBt8m2Y"></script>
+<script src="/static/app.js?v=b124" defer></script>
 </body>
 </html>

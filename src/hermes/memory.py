@@ -14,7 +14,7 @@ if MEMORY_BACKEND == 'chromadb':
         pass
 
 DB_PATH = os.path.join(os.path.dirname(__file__), '../../data/memory.db')
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), '../../config.json')
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), '../../data/config.json')
 
 def _load_config():
     try:
@@ -108,13 +108,14 @@ def _enforce_summarize(c, chat_id, limit, config):
         return 0
     batch_size = max(1, limit // 2)
     batch = rows[:batch_size]
-    messages_to_summarize = [{'role': r[1], 'content': r[2]} for r in batch if not r[2].startswith('[SUMMARY]')]
+    summarized_rows = [r for r in batch if not r[2].startswith('[SUMMARY]')]
+    messages_to_summarize = [{'role': r[1], 'content': r[2]} for r in summarized_rows]
     if not messages_to_summarize:
         return _enforce_sliding_window(c, chat_id, limit)
     try:
         summary = _call_summarizer(messages_to_summarize, config)
         now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        ids_to_delete = [r[0] for r in batch]
+        ids_to_delete = [r[0] for r in summarized_rows]
         c.execute(
             f'DELETE FROM messages WHERE id IN ({",".join("?" * len(ids_to_delete))})',
             ids_to_delete
@@ -124,7 +125,7 @@ def _enforce_summarize(c, chat_id, limit, config):
             (str(chat_id), 'system', f'[SUMMARY] {summary}', now)
         )
         c.commit()
-        return len(batch)
+        return len(ids_to_delete)
     except Exception:
         return _enforce_sliding_window(c, chat_id, limit)
 
@@ -148,7 +149,7 @@ def save(chat_id, role, content, source=None):
         ).fetchone()[0]
         if count > limit:
             c.execute(
-                'DELETE FROM messages WHERE id = (SELECT MAX(id) FROM messages WHERE chat_id=?)',
+                'DELETE FROM messages WHERE id = (SELECT MIN(id) FROM messages WHERE chat_id=?)',
                 (str(chat_id),)
             )
             c.commit()
@@ -174,6 +175,26 @@ def get_history(chat_id, limit=10):
     ).fetchall()
     c.close()
     return [{'role': r[0], 'content': r[1], 'source': r[2]} for r in reversed(rows)]
+
+def estimate_tokens(messages):
+    # Same rough estimator used by the gateway and the dashboard display: ~4 chars per token.
+    return sum(len(m.get('content') or '') for m in messages) // 4
+
+def get_context(chat_id):
+    """The single source of truth for the active context window.
+
+    Reads memory_limit (max messages sent) and max_tokens (token budget) from config,
+    fetches the most recent memory_limit messages, then drops the OLDEST messages until the
+    estimated token count fits within max_tokens. Used by BOTH the dashboard /api/chat and the
+    Telegram gateway so the dashboard knobs control the real context everywhere.
+    """
+    config = _load_config()
+    limit = config.get('memory_limit', 100)
+    max_tokens = config.get('max_tokens', 128000)
+    history = get_history(chat_id, limit)
+    while len(history) > 1 and estimate_tokens(history) > max_tokens:
+        history.pop(0)
+    return history
 
 def prune(chat_id, limit):
     c = _conn()

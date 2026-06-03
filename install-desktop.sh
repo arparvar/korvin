@@ -8,6 +8,8 @@ REPO_URL="${KORVIN_REPO_URL:-https://github.com/nosistech/korvin.git}"
 ENV_FILE="/etc/korvin.env"
 LITELLM_CONFIG="${APP_HOME}/litellm_config.yaml"
 CONFIG_FILE="${APP_DIR}/config.json"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/scripts/install-lib.sh"
 
 require_root() {
   if [ "${EUID}" -ne 0 ]; then
@@ -50,7 +52,8 @@ read_required_secret() {
 
 install_system_deps() {
   apt-get update
-  apt-get install -y nodejs npm python3 python3-pip python3-venv curl git ca-certificates
+  apt-get install -y python3 python3-pip python3-venv curl git ca-certificates gnupg
+  install_node20_if_needed
 }
 
 create_app_user() {
@@ -60,14 +63,7 @@ create_app_user() {
 }
 
 clone_or_update_repo() {
-  if [ -d "${APP_DIR}/.git" ]; then
-    runuser -u "${APP_USER}" -- git -C "${APP_DIR}" pull
-  elif [ -e "${APP_DIR}" ]; then
-    echo "${APP_DIR} exists but is not a git checkout. Move it aside and rerun this installer."
-    exit 1
-  else
-    runuser -u "${APP_USER}" -- git clone "${REPO_URL}" "${APP_DIR}"
-  fi
+  clone_or_update_repo_ff "${APP_USER}" "${APP_DIR}" "${REPO_URL}"
 }
 
 install_app_deps() {
@@ -119,17 +115,19 @@ TELEGRAM_BOT_TOKEN=
 KORVIN_CHAT_ID=
 DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
 GEMINI_API_KEY=${GEMINI_API_KEY}
-LITELLM_MASTER_KEY=${KORVIN_API_KEY}
+MIMO_API_KEY=
+LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
 LITELLM_BASE_URL=http://127.0.0.1:4000/v1
 OPENAI_API_BASE_URL=http://127.0.0.1:4000/v1
-OPENAI_API_KEY=${KORVIN_API_KEY}
+OPENAI_API_KEY=${LITELLM_MASTER_KEY}
 KORVIN_API_KEY=${KORVIN_API_KEY}
+KORVIN_DASHBOARD_TOKEN=${KORVIN_DASHBOARD_TOKEN}
 KORVIN_MODEL=${KORVIN_MODEL}
 KORVIN_DATA_DIR=${APP_DIR}/data
 EOF
   chmod 600 "${ENV_FILE}"
   chown root:root "${ENV_FILE}"
-  echo "Dashboard security key: set"
+  echo "Dashboard password and internal API key: set"
 }
 
 write_config_json() {
@@ -148,18 +146,33 @@ PY
 write_litellm_config() {
   cat > "${LITELLM_CONFIG}" <<'EOF'
 model_list:
-  - model_name: deepseek-v4-pro
-    litellm_params:
-      model: deepseek/deepseek-chat
-      api_key: os.environ/DEEPSEEK_API_KEY
-  - model_name: deepseek-v4-flash
-    litellm_params:
-      model: deepseek/deepseek-chat
-      api_key: os.environ/DEEPSEEK_API_KEY
   - model_name: gemini-flash
     litellm_params:
-      model: gemini/gemini-1.5-flash
+      model: gemini/gemini-2.5-flash
       api_key: os.environ/GEMINI_API_KEY
+      rpm: 60
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: deepseek/deepseek-v4-flash
+      api_key: os.environ/DEEPSEEK_API_KEY
+      rpm: 60
+  - model_name: deepseek-v4-pro
+    litellm_params:
+      model: deepseek/deepseek-v4-pro
+      api_key: os.environ/DEEPSEEK_API_KEY
+      rpm: 30
+  - model_name: mimo-v2.5
+    litellm_params:
+      model: openai/mimo-v2.5
+      api_base: https://api.xiaomimimo.com/v1
+      api_key: os.environ/MIMO_API_KEY
+      rpm: 60
+  - model_name: mimo-v2.5-pro
+    litellm_params:
+      model: openai/mimo-v2.5-pro
+      api_base: https://api.xiaomimimo.com/v1
+      api_key: os.environ/MIMO_API_KEY
+      rpm: 30
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
@@ -209,26 +222,6 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-  cat > /etc/systemd/system/korvin-api.service <<EOF
-[Unit]
-Description=Korvin Local Dashboard API
-After=network-online.target litellm.service
-Wants=network-online.target litellm.service
-
-[Service]
-Type=simple
-User=${APP_USER}
-Group=${APP_USER}
-WorkingDirectory=${APP_DIR}
-EnvironmentFile=${ENV_FILE}
-ExecStart=/usr/bin/node -e "require('./src/dashboard-api/server').startDashboard()"
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
   cat > /etc/systemd/system/korvin.service <<EOF
 [Unit]
 Description=Korvin Telegram Bot
@@ -252,7 +245,7 @@ EOF
 
 start_desktop_services() {
   systemctl daemon-reload
-  systemctl enable --now litellm.service korvin-dashboard.service korvin-api.service
+  systemctl enable --now litellm.service korvin-dashboard.service
 }
 
 main() {
@@ -260,7 +253,9 @@ main() {
   require_debian_or_ubuntu
 
   read_required_secret "Enter your LLM API key (DeepSeek or Gemini): " LLM_API_KEY
-  read_required_secret "Enter a dashboard security key (any strong password): " KORVIN_API_KEY
+  read_required_secret "Enter a dashboard login password (12+ chars recommended): " KORVIN_DASHBOARD_TOKEN
+  KORVIN_API_KEY=$(random_hex 16)
+  LITELLM_MASTER_KEY=$(random_hex 32)
   detect_llm_provider
 
   install_system_deps
@@ -277,7 +272,7 @@ main() {
   echo
   echo "Korvin dashboard installed!"
   echo "Open: http://YOUR_SERVER_IP:3002 (or set up Cloudflare Tunnel)"
-  echo "API key required in X-Korvin-Key header"
+  echo "Dashboard login: use the password you entered during install"
   echo
   echo "Optional: add Telegram by editing /etc/korvin.env and running:"
   echo "  sudo systemctl start korvin.service"

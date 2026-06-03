@@ -1,10 +1,16 @@
 const https = require('https');
-const { sanitize } = require('../security/defender');
+const http = require('http');
+const { labelSuspiciousContent } = require('../security/defender');
+const { assertSafeUrl, pinnedLookup } = require('../security/ssrf-guard');
 
-function makeSearxngRequest(url) {
+async function makeSearxngRequest(url) {
+  const { url: safeUrl, address, family } = await assertSafeUrl(url);
+  const client = safeUrl.protocol === 'http:' ? http : https;
   return new Promise((resolve, reject) => {
-    const req = https.get(url, {
-      headers: { 'Accept': 'application/json', 'User-Agent': 'Korvin/1.0' }, timeout: 10000
+    const req = client.get(safeUrl, {
+      headers: { 'Accept': 'application/json', 'User-Agent': 'Korvin/1.0' },
+      lookup: pinnedLookup(address, family),
+      timeout: 10000
     }, (res) => {
       if (res.statusCode !== 200) {
         res.resume();
@@ -29,10 +35,13 @@ function makeSearxngRequest(url) {
 
 // --- Advanced scraper helpers (KORVIN_ADVANCED_SCRAPER=1 only) ---
 
-function fetchRaw(url, timeoutMs, extraHeaders) {
+async function fetchRaw(url, timeoutMs, extraHeaders) {
+  const { url: safeUrl, address, family } = await assertSafeUrl(url);
+  const client = safeUrl.protocol === 'http:' ? http : https;
   return new Promise((resolve, reject) => {
-    const req = https.get(url, {
+    const req = client.get(safeUrl, {
       headers: Object.assign({ 'User-Agent': 'Korvin/1.0' }, extraHeaders || {}),
+      lookup: pinnedLookup(address, family),
       timeout: timeoutMs
     }, (res) => {
       let data = '';
@@ -100,7 +109,7 @@ async function researchTopic(topic) {
     try {
       const q = encodeURIComponent(topic);
       const text = await makeSearxngRequest(`${searxngUrl}/search?q=${q}&format=json&language=en`);
-      return sanitize(text);
+      return labelSuspiciousContent(text);
     } catch (err) { void err; }
   }
 
@@ -119,15 +128,18 @@ async function researchTopic(topic) {
     }
     const allowed = (await Promise.all(candidates.map(async u => (await isAllowedByRobots(u)) ? u : null))).filter(Boolean);
     const scraped = allowed.length ? await fetchWithConcurrency(allowed) : stripHtml(body);
-    return sanitize(scraped.substring(0, 3000));
+    return labelSuspiciousContent(scraped.substring(0, 3000));
   }
 
+  const { url: safeUrl, address, family } = await assertSafeUrl(url);
+  const client = safeUrl.protocol === 'http:' ? http : https;
   return new Promise((resolve, reject) => {
-    const req = https.get(url, {
+    const req = client.get(safeUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; Korvin/1.0)',
         'Accept': 'text/html'
       },
+      lookup: pinnedLookup(address, family),
       timeout: 15000
     }, (res) => {
       let data = '';
@@ -144,7 +156,7 @@ async function researchTopic(topic) {
           .replace(/\s+/g, ' ')
           .trim()
           .substring(0, 3000);
-        resolve(sanitize(text));
+        resolve(labelSuspiciousContent(text));
       });
     });
 

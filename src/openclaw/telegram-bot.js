@@ -6,7 +6,8 @@
 require('../security/log-redact').installLogRedaction();
 
 const TelegramBot = require('node-telegram-bot-api');
-const { exec, execSync } = require('child_process');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
 const { sendMessage, getActiveModel, addPreference, getPreferences, removePreference, clearPreferences, resetSession, searchMessages, summarizeSession, saveNamedSession, loadNamedSession, appendMemory, appendUserNote, getGoal, setGoal, clearGoal } = require('./gateway');
 const { researchTopic } = require('../skills/research');
 const fs = require('fs');
@@ -15,11 +16,11 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const https = require('https');
 const os = require('os');
 const cron = require('node-cron');
+const execFileAsync = promisify(execFile);
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-const { sanitizeInput } = require('../middleware/sanitizer');
+const { validateInput } = require('../middleware/sanitizer');
 const { confirmationGate, confirmAction, cancelAction, listPending } = require('../middleware/confirmation-gate');
-const { defend } = require('../security/defender');
 const { checkRateLimit } = require('../security/rate-limiter');
 
 // ── Skills ────────────────────────────────────────────────────────────────────
@@ -32,23 +33,22 @@ const { registerScan } = require('../commands/scan');
 
 // ── Dashboard (Phase B) ───────────────────────────────────────────────────────
 
+const ALLOWED_USER_IDS = new Set((process.env.KORVIN_ALLOWED_USERS || '')
+  .split(',')
+  .map(id => id.trim())
+  .filter(Boolean));
+
+function isAllowedUserId(userId) {
+  return ALLOWED_USER_IDS.size > 0 && ALLOWED_USER_IDS.has(String(userId || ''));
+}
+
 function isAllowed(msg) {
-  const allowedUsers = (process.env.KORVIN_ALLOWED_USERS || '')
-    .split(',')
-    .map(id => id.trim())
-    .filter(Boolean);
-  if (allowedUsers.length === 0) return true;
-  return allowedUsers.includes(String(msg.from && msg.from.id));
+  return isAllowedUserId(msg && msg.from && msg.from.id);
 }
 
 // ── Bot init ──────────────────────────────────────────────────────────────────
-let configuredTelegramToken = '';
-try {
-  configuredTelegramToken = require('../../config.json').telegramToken || '';
-} catch (_) {}
-
-const envHasTelegramToken = Object.prototype.hasOwnProperty.call(process.env, 'TELEGRAM_BOT_TOKEN');
-const BOT_TOKEN = (envHasTelegramToken ? process.env.TELEGRAM_BOT_TOKEN : configuredTelegramToken || '').trim();
+// Bot token comes ONLY from the environment (/etc/korvin.env). Secrets never live in config.json (B113).
+const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim();
 const telegramEnabled = BOT_TOKEN !== '';
 const disabledBot = {
   onText: () => {},
@@ -59,8 +59,37 @@ const disabledBot = {
 };
 const bot = telegramEnabled ? new TelegramBot(BOT_TOKEN, { polling: true }) : disabledBot;
 
+if (telegramEnabled && ALLOWED_USER_IDS.size === 0) {
+  console.warn('[Korvin] WARNING: KORVIN_ALLOWED_USERS is empty. Telegram access is locked until the owner user ID is configured.');
+}
+
+function denyTelegram(msg) {
+  const chatId = msg && msg.chat && msg.chat.id;
+  if (chatId) return bot.sendMessage(chatId, 'Access denied.');
+}
+
+const originalOnText = bot.onText.bind(bot);
+bot.onText = (regexp, handler) => originalOnText(regexp, async (msg, match) => {
+  if (!isAllowed(msg)) return denyTelegram(msg);
+  return handler(msg, match);
+});
+
+const originalOn = bot.on.bind(bot);
+bot.on = (event, handler) => originalOn(event, async (payload) => {
+  if (event === 'callback_query') {
+    if (!isAllowedUserId(payload && payload.from && payload.from.id)) {
+      return bot.answerCallbackQuery(payload.id, { text: 'Access denied.' });
+    }
+  }
+  if ((event === 'message' || event === 'voice') && !isAllowed(payload)) {
+    return denyTelegram(payload);
+  }
+  return handler(payload);
+});
+
 const VOICE_DIR = '/tmp/korvin_voice';
 const GOAL_CHAT_PATH = path.join(ROOT, 'data', 'goal_chat.txt');
+const TELEGRAM_FILE_ID_RE = /^[A-Za-z0-9_-]+$/;
 if (!fs.existsSync(VOICE_DIR)) fs.mkdirSync(VOICE_DIR);
 
 // ── Grill Mode state ──────────────────────────────────────────────────────────
@@ -82,41 +111,44 @@ function downloadFile(url, dest) {
   });
 }
 
-function transcribe(audioPath) {
-  return execSync(
-    `cd ${ROOT} && venv/bin/python3 -c "
+async function transcribe(audioPath) {
+  const script = `
 import warnings
+import sys
 warnings.filterwarnings('ignore')
 from faster_whisper import WhisperModel
 m = WhisperModel('tiny.en', device='cpu', compute_type='int8')
-segments, _ = m.transcribe('${audioPath}', language='en', beam_size=1, vad_filter=False)
+segments, _ = m.transcribe(sys.argv[1], language='en', beam_size=1, vad_filter=False)
 print(' '.join(s.text for s in segments).strip())
-"`,
-    { encoding: 'utf8', stderr: 'pipe' }
-  ).trim();
+`;
+  const { stdout } = await execFileAsync(
+    path.join(ROOT, 'venv', 'bin', 'python3'),
+    ['-c', script, audioPath],
+    { cwd: ROOT, encoding: 'utf8', stderr: 'pipe' }
+  );
+  return stdout.trim();
 }
 
-function generateSpeech(text, outputPath) {
-  return new Promise((resolve, reject) => {
-    const textFile = '/tmp/korvin_tts_input.txt';
-    const ttsText = text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/`(.*?)`/g, '$1');
-    const runKokoro = () => {
-      fs.writeFileSync(textFile, ttsText, 'utf8');
-      exec(
-        `cd ${ROOT} && venv/bin/python3 -c "
+async function generateSpeech(text, outputPath) {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'korvin-tts-'));
+  const textFile = path.join(tempDir, 'input.txt');
+  const ttsText = text.replace(/\*\*(.*?)\*\*/g, '$1').replace(/\*(.*?)\*/g, '$1').replace(/`(.*?)`/g, '$1');
+  const script = `
 import warnings, sys
 warnings.filterwarnings('ignore')
 sys.path.insert(0, 'src/voice')
 from voice import generate_speech
-text = open('/tmp/korvin_tts_input.txt').read()
-generate_speech(text, '${outputPath}')
-"`,
-        (err) => err ? reject(err) : resolve(outputPath)
-      );
-    };
-
-    runKokoro();
-  });
+text = open(sys.argv[1]).read()
+generate_speech(text, sys.argv[2])
+`;
+  try {
+    fs.writeFileSync(textFile, ttsText, 'utf8');
+    await execFileAsync(path.join(ROOT, 'venv', 'bin', 'python3'), ['-c', script, textFile, outputPath], { cwd: ROOT });
+    return outputPath;
+  } finally {
+    cleanup(textFile);
+    try { fs.rmdirSync(tempDir); } catch (_) {}
+  }
 }
 
 function cleanReply(text) {
@@ -138,8 +170,8 @@ function sendKeyboard(chatId, text, keyboard) {
 }
 
 function formatError(action, error) {
-  const reason = error.message || 'an unexpected error occurred';
-  return `Couldn't ${action} because ${reason}.`;
+  console.error(`Telegram ${action} error:`, error);
+  return `Couldn't ${action}. Check the server logs for details.`;
 }
 
 function isNoise(text) {
@@ -209,61 +241,25 @@ async function getResearchSummary(topic) {
 
 // ── System Status ─────────────────────────────────────────────────────────────
 
-function getSystemStatus() {
+async function getSystemStatus() {
+  const total = os.totalmem();
+  const free = os.freemem();
+  const used = total - free;
+  const load = os.loadavg();
+  let disk = 'N/A';
   try {
-    const sys = JSON.parse(execSync('curl -s --max-time 2 http://localhost:3002/api/system').toString());
-    const activeModelName = getActiveModel();
-    return `🟢 *Korvin Online*\n` +
-      `🧠 Model: ${activeModelName}\n` +
-      `💾 Disk: ${sys.disk_used} / ${sys.disk_total} (${sys.disk_pct})\n` +
-      `🧮 RAM: ${sys.mem_used_mb} MB / ${sys.mem_total_mb} MB (${sys.mem_pct}%)\n` +
-      `📊 CPU Load: ${sys.load_1m} / ${sys.load_5m} / ${sys.load_15m}\n` +
-      `⏱ Uptime: ${sys.uptime_hours}h`;
-  } catch (_) {
-    const total = os.totalmem();
-    const free = os.freemem();
-    const used = total - free;
-    const load = os.loadavg();
-    let disk = 'N/A';
-    try {
-      disk = execSync("df -h / | tail -1 | awk '{print $3\"/\"$2\" (\"$5\")\"}'" ).toString().trim();
-    } catch (_) {}
-    const activeModelName = getActiveModel();
-    return `🟡 *Korvin Online* _(dashboard offline)_\n` +
-      `🧠 Model: ${activeModelName}\n` +
-      `🧮 RAM: ${(used/1024/1024).toFixed(0)} MB / ${(total/1024/1024).toFixed(0)} MB (${((used/total)*100).toFixed(1)}%)\n` +
-      `💾 Disk: ${disk}\n` +
-      `📊 CPU Load: ${load[0].toFixed(2)} / ${load[1].toFixed(2)} / ${load[2].toFixed(2)}\n` +
-      `⏱ Uptime: ${(os.uptime()/3600).toFixed(1)}h`;
-  }
+    const { stdout } = await execFileAsync('df', ['-h', '/'], { encoding: 'utf8', timeout: 3000 });
+    const parts = stdout.trim().split('\n').pop().split(/\s+/);
+    disk = parts.length >= 5 ? `${parts[2]}/${parts[1]} (${parts[4]})` : 'N/A';
+  } catch (_) {}
+  const activeModelName = getActiveModel();
+  return `?? *Korvin Online*\n` +
+    `Model: ${activeModelName}\n` +
+    `RAM: ${(used/1024/1024).toFixed(0)} MB / ${(total/1024/1024).toFixed(0)} MB (${((used/total)*100).toFixed(1)}%)\n` +
+    `Disk: ${disk}\n` +
+    `CPU Load: ${load[0].toFixed(2)} / ${load[1].toFixed(2)} / ${load[2].toFixed(2)}\n` +
+    `Uptime: ${(os.uptime()/3600).toFixed(1)}h`;
 }
-
-// ── Implicit Correction Detection ─────────────────────────────────────────────
-
-function detectCorrection(text) {
-  const triggers = [
-    /\b(?:don'?t|do not)\b/i,
-    /\bstop\b/i,
-    /\bnext time\b/i,
-    /\bfrom now on\b/i,
-    /\balways\b/i,
-    /\bnever\b/i,
-    /\binstead of\b/i,
-    /\bprefer\b/i,
-    /\bplease\b/i,
-  ];
-  for (const re of triggers) {
-    if (re.test(text)) {
-      const rule = text.trim();
-      if (rule.length > 0) {
-        return rule;
-      }
-    }
-  }
-  return null;
-}
-
-// ── Command Handlers ──────────────────────────────────────────────────────────
 
 bot.onText(/\/start|\/help/, async (msg) => {
   await bot.sendMessage(msg.chat.id,
@@ -286,7 +282,7 @@ bot.onText(/\/start|\/help/, async (msg) => {
 });
 
 bot.onText(/\/status/, async (msg) => {
-  const report = getSystemStatus();
+  const report = await getSystemStatus();
   await bot.sendMessage(msg.chat.id, report, { parse_mode: 'Markdown' });
 });
 
@@ -368,7 +364,8 @@ bot.onText(/^\/memory$/, async (msg) => {
     const usr = fs.readFileSync(path.join(ROOT, 'data', 'USER.md'), 'utf8').trim();
     await bot.sendMessage(chatId, '*MEMORY.md*\n' + mem + '\n\n*USER.md*\n' + usr, { parse_mode: 'Markdown' });
   } catch (e) {
-    await bot.sendMessage(chatId, 'Could not read memory files: ' + e.message);
+    console.error('Memory file read error:', e);
+    await bot.sendMessage(chatId, 'Could not read memory files. Check the server logs for details.');
   }
 });
 
@@ -416,7 +413,8 @@ bot.onText(/^\/insights$/, async (msg) => {
     if (bestDay) lines.push('Most active: ' + bestDay);
     await bot.sendMessage(msg.chat.id, lines.join('\n'));
   } catch (e) {
-    await bot.sendMessage(msg.chat.id, 'Could not load insights: ' + e.message);
+    console.error('Insights error:', e);
+    await bot.sendMessage(msg.chat.id, 'Could not load insights. Check the server logs for details.');
   }
 });
 
@@ -510,12 +508,13 @@ bot.onText(/^\/search (.+)/, async (msg, match) => {
       return;
     }
     const lines = results.map((result, i) => {
-      const preview = result.content.length > 120 ? result.content.substring(0, 120) + '???' : result.content;
+      const preview = result.content.length > 120 ? result.content.substring(0, 120) + '…' : result.content;
       return `${i + 1}. ${result.role}: ${preview}`;
     });
     await bot.sendMessage(msg.chat.id, lines.join('\n'));
   } catch (err) {
-    await bot.sendMessage(msg.chat.id, `Search failed: ${err.message}`);
+    console.error('Search error:', err);
+    await bot.sendMessage(msg.chat.id, 'Search failed. Check the server logs for details.');
   }
 });
 
@@ -526,7 +525,8 @@ bot.onText(/^\/save\s+(\S+)/, async (msg, match) => {
     const result = await saveNamedSession(String(msg.chat.id), name);
     bot.sendMessage(msg.chat.id, result);
   } catch (e) {
-    bot.sendMessage(msg.chat.id, 'Failed to save session: ' + e.message);
+    console.error('Save session error:', e);
+    bot.sendMessage(msg.chat.id, 'Failed to save session. Check the server logs for details.');
   }
 });
 
@@ -537,14 +537,14 @@ bot.onText(/^\/load\s+(\S+)/, async (msg, match) => {
     const result = await loadNamedSession(String(msg.chat.id), name);
     bot.sendMessage(msg.chat.id, result);
   } catch (e) {
-    bot.sendMessage(msg.chat.id, 'Failed to load session: ' + e.message);
+    console.error('Load session error:', e);
+    bot.sendMessage(msg.chat.id, 'Failed to load session. Check the server logs for details.');
   }
 });
 
 // ── Text Handler ──────────────────────────────────────────────────────────────
 
 bot.on('message', async (msg) => {
-  if (!isAllowed(msg)) return bot.sendMessage(msg.chat.id, 'Access denied.');
   const chatId = msg.chat.id;
   const text = msg.text;
   if (!text || msg.voice) return;
@@ -594,32 +594,14 @@ bot.on('message', async (msg) => {
 
   if (text.startsWith('/')) return;
 
-  const sanity = sanitizeInput(text);
+  const sanity = validateInput(text);
   if (sanity.safe === false) {
-    await bot.sendMessage(chatId, 'Input rejected: ' + sanity.reason);
+    console.warn('Telegram input rejected:', sanity.reason);
+    await bot.sendMessage(chatId, 'Input rejected.');
     return;
   }
 
   // ── Implicit correction detection ──
-  const correctionRule = detectCorrection(sanity.value);
-  if (correctionRule) {
-    addPreference(correctionRule);
-    await bot.sendMessage(chatId, `Got it — ${correctionRule}`);
-    return;
-  }
-
-  if (false && sanity.value.toLowerCase().startsWith('research ')) {
-    const topic = sanity.value.substring(9).trim();
-    await bot.sendMessage(chatId, `🔍 Researching "${topic}" …`);
-    try {
-      const summary = await getResearchSummary(topic);
-      await bot.sendMessage(chatId, summary, { parse_mode: 'Markdown' });
-    } catch (err) {
-      await bot.sendMessage(chatId, formatError('complete the research', err));
-    }
-    return;
-  }
-
   try {
     const currentPreferences = getPreferences();
     const msgToSend = briefMode
@@ -635,11 +617,16 @@ bot.on('message', async (msg) => {
 // ── Voice Handler ─────────────────────────────────────────────────────────────
 
 bot.on('voice', async (msg) => {
-  if (!isAllowed(msg)) return bot.sendMessage(msg.chat.id, 'Access denied.');
   const chatId = msg.chat.id;
-  const oggPath = path.join(VOICE_DIR, `${msg.voice.file_id}.ogg`);
-  const wavPath = path.join(VOICE_DIR, `${msg.voice.file_id}.wav`);
-  const replyWav = `/tmp/voice_reply_${Date.now()}.wav`;
+  const fileId = msg.voice && msg.voice.file_id;
+  if (!TELEGRAM_FILE_ID_RE.test(String(fileId || ''))) {
+    await bot.sendMessage(chatId, 'Voice file rejected.');
+    return;
+  }
+  const tempDir = fs.mkdtempSync(path.join(VOICE_DIR, 'msg-'));
+  const oggPath = path.join(tempDir, 'input.ogg');
+  const wavPath = path.join(tempDir, 'input.wav');
+  const replyWav = path.join(tempDir, 'reply.wav');
 
   console.log('Voice received:', msg.voice.file_id);
   try {
@@ -647,38 +634,20 @@ bot.on('voice', async (msg) => {
     const fileUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${fileInfo.file_path}`;
 
     await downloadFile(fileUrl, oggPath);
-    execSync(`ffmpeg -y -i ${oggPath} ${wavPath} 2>/dev/null`);
+    await execFileAsync('ffmpeg', ['-y', '-i', oggPath, wavPath], { stdio: ['ignore', 'ignore', 'ignore'] });
 
-    const transcript = transcribe(wavPath);
+    const transcript = await transcribe(wavPath);
     console.log('Transcript:', transcript);
-    const voiceCheck = sanitizeInput(transcript);
-    if (!voiceCheck.safe) { await bot.sendMessage(chatId, `❌ Voice input blocked: ${voiceCheck.reason}`); cleanup(oggPath, wavPath, replyWav); return; }
+    const voiceCheck = validateInput(transcript);
+    if (!voiceCheck.safe) {
+      console.warn('Telegram voice input rejected:', voiceCheck.reason);
+      await bot.sendMessage(chatId, 'Voice input rejected.');
+      cleanup(oggPath, wavPath, replyWav);
+      try { fs.rmdirSync(tempDir); } catch (_) {}
+      return;
+    }
 
     // ── Implicit correction detection for voice ──
-    const voiceCorrection = detectCorrection(transcript);
-    if (voiceCorrection) {
-      addPreference(voiceCorrection);
-      await bot.sendMessage(chatId, `Got it — ${voiceCorrection}`);
-      cleanup(oggPath, wavPath);
-      return;
-    }
-
-    if (false && transcript.toLowerCase().includes('research ')) {
-      const idx = transcript.toLowerCase().indexOf('research ') + 9;
-      const topic = transcript.substring(idx).trim();
-      await bot.sendMessage(chatId, `🔍 Researching "${topic}" …`);
-      try {
-        const summary = await getResearchSummary(topic);
-        await bot.sendMessage(chatId, summary, { parse_mode: 'Markdown' });
-        await generateSpeech(summary, replyWav);
-        await bot.sendVoice(chatId, replyWav);
-      } catch (err) {
-        await bot.sendMessage(chatId, formatError('complete the research', err));
-      }
-      cleanup(oggPath, wavPath, replyWav);
-      return;
-    }
-
     const currentPreferences = getPreferences();
     const reply = cleanReply(await sendMessage(transcript, String(chatId), currentPreferences));
     console.log('Reply:', reply);
@@ -690,6 +659,7 @@ bot.on('voice', async (msg) => {
     await bot.sendMessage(chatId, formatError('process your voice message', err));
   } finally {
     cleanup(oggPath, wavPath, replyWav);
+    try { fs.rmdirSync(tempDir); } catch (_) {}
   }
 });
 
@@ -735,22 +705,23 @@ function activateGoalHeartbeat() {
     activateGoalHeartbeat();
     console.log('Korvin bot started. /help for commands.');
 
-    setTimeout(() => {
-    try {
-      execSync(
-        `cd ${ROOT} && venv/bin/python3 -c "
+    setTimeout(async () => {
+      try {
+        await execFileAsync(
+          path.join(ROOT, 'venv', 'bin', 'python3'),
+          ['-c', `
 import warnings
 warnings.filterwarnings('ignore')
 from faster_whisper import WhisperModel
 WhisperModel('tiny.en', device='cpu', compute_type='int8')
 print('ok')
-"`,
-        { encoding: 'utf8', timeout: 60000 }
-      );
-      console.log('Whisper model pre‑warmed.');
-    } catch (_) {
-      console.log('Whisper pre‑warm skipped (will load on first voice message).');
-    }
+`],
+          { cwd: ROOT, encoding: 'utf8', timeout: 60000 }
+        );
+        console.log('Whisper model pre-warmed.');
+      } catch (_) {
+        console.log('Whisper pre-warm skipped (will load on first voice message).');
+      }
     }, 3000);
   }
 })();

@@ -2,9 +2,33 @@
 
 const fs = require('fs');
 const path = require('path');
+const { isPermissionAllowed } = require('./permissions');
 
 const SKILLS_DIR = path.join(__dirname, '../../skills');
 const ALLOWED_PERMISSIONS = ['read-only', 'network-read', 'local-status'];
+
+function compileSafeTrigger(trigger) {
+  let source = String(trigger || '').trim();
+  if (source.length === 0 || source.length > 120) {
+    throw new Error('trigger must be 1-120 characters');
+  }
+  if (source.startsWith('^')) source = source.slice(1);
+  const anchoredEnd = source.endsWith('$');
+  if (anchoredEnd) source = source.slice(0, -1);
+
+  const tokens = [];
+  source = source
+    .replace(/\\s\+/g, () => `\u0000${tokens.push('\\s+') - 1}\u0000`)
+    .replace(/\(\.\+\)/g, () => `\u0000${tokens.push('(.+)') - 1}\u0000`);
+
+  if (/[\\^$.*+?()[\]{}|]/.test(source)) {
+    throw new Error('only literal text, \\s+, and (.+) capture are allowed');
+  }
+
+  const escaped = source.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\u0000(\d+)\u0000/g, (_, i) => tokens[Number(i)]);
+  return new RegExp(`^${escaped}${anchoredEnd ? '$' : ''}`, 'i');
+}
 
 function warnSkill(name, reason) {
   console.warn(`[Skills] Skipping ${name}: ${reason}`);
@@ -28,15 +52,15 @@ function isValidManifest(manifest, skillName) {
     }
   }
 
-  if (!ALLOWED_PERMISSIONS.includes(manifest.permission)) {
+  if (!ALLOWED_PERMISSIONS.includes(manifest.permission) || !isPermissionAllowed(manifest.permission)) {
     warnSkill(manifest.name, `permission ${manifest.permission} is not allowed`);
     return false;
   }
 
   try {
-    new RegExp(manifest.trigger);
+    manifest.compiledTrigger = compileSafeTrigger(manifest.trigger);
   } catch (err) {
-    warnSkill(manifest.name, `invalid trigger regex: ${err.message}`);
+    warnSkill(manifest.name, `invalid trigger: ${err.message}`);
     return false;
   }
 
@@ -74,24 +98,13 @@ function loadSkillFromDirectory(skillDir, skillName) {
     return null;
   }
 
-  let handler;
-  try {
-    handler = require(handlerPath);
-  } catch (err) {
-    warnSkill(manifest.name, `cannot load handler: ${err.message}`);
-    return null;
-  }
-
-  if (!handler || typeof handler.run !== 'function') {
-    warnSkill(manifest.name, 'handler must export a run function');
-    return null;
-  }
-
   return {
     name: manifest.name,
     triggerRegex: manifest.trigger,
+    compiledTrigger: manifest.compiledTrigger,
     permission: manifest.permission,
-    run: handler.run,
+    skillDir: path.resolve(skillDir),
+    handlerRelPath: manifest.handler,
   };
 }
 
@@ -120,12 +133,7 @@ function loadManifestSkills() {
 
 function dispatchManifestSkill(skills, message) {
   for (const skill of skills || []) {
-    try {
-      const triggerRegex = new RegExp(skill.triggerRegex);
-      if (triggerRegex.test(message)) return skill;
-    } catch (err) {
-      warnSkill(skill.name || 'unknown skill', `invalid runtime trigger: ${err.message}`);
-    }
+    if (skill.compiledTrigger && skill.compiledTrigger.test(message)) return skill;
   }
   return null;
 }

@@ -1,23 +1,26 @@
+const crypto = require('crypto');
+
 const SPECIAL_TOKEN_PATTERN = /<\|[a-z_]+\|>|\[\/?INST\]|<<\/?SYS>>/g;
+const EXTERNAL_MARKER_PATTERN = /EXTERNAL CONTENT (?:BEGIN|END)/i;
 
 function stripSpecialTokens(text) {
   return String(text || '').replace(SPECIAL_TOKEN_PATTERN, '');
 }
 
 function makeBoundaryId() {
-  return (Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).slice(0, 8);
+  return crypto.randomBytes(12).toString('hex');
 }
 
-function stripPrematureEndLines(text) {
+function stripPrematureMarkerLines(text) {
   return text
     .split(/\r?\n/)
-    .filter(line => !line.includes('EXTERNAL CONTENT END'))
+    .filter(line => !EXTERNAL_MARKER_PATTERN.test(line))
     .join('\n');
 }
 
 function wrapExternalContent(content, sourceLabel) {
   const boundaryId = makeBoundaryId();
-  const cleanContent = stripPrematureEndLines(stripSpecialTokens(content));
+  const cleanContent = stripPrematureMarkerLines(stripSpecialTokens(content));
   const cleanSourceLabel = stripSpecialTokens(sourceLabel).replace(/\r?\n/g, ' ').trim();
 
   return [

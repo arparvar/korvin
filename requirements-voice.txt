@@ -1,3 +1,9 @@
+# Voice (TTS/STT) deps. CPU-only build — no GPU/CUDA packages.
+# torch is pulled from PyTorch's CPU wheel index (saves ~3.4 GB vs the CUDA build).
+# Have an NVIDIA GPU? After installing, run: pip install -r requirements-voice-gpu.txt
+# Full explanation: docs/voice-cpu-vs-gpu.md
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 addict==2.4.0
 babel==2.18.0
 blis==1.3.3
@@ -5,9 +11,6 @@ catalogue==2.0.10
 cffi==2.0.0
 cloudpathlib==0.23.0
 confection==1.3.3
-cuda-bindings==13.2.0
-cuda-pathfinder==1.5.4
-cuda-toolkit==13.0.2
 curated-tokenizers==0.0.9
 curated-transformers==0.1.1
 cymem==2.0.13
@@ -29,22 +32,10 @@ networkx==3.6.1
 num2words==0.5.14
 numba==0.65.1
 numpy==2.4.4
-nvidia-cublas==13.1.0.3
-nvidia-cuda-cupti==13.0.85
-nvidia-cuda-nvrtc==13.0.88
-nvidia-cuda-runtime==13.0.96
-nvidia-cudnn-cu13==9.19.0.56
-nvidia-cufft==12.0.0.61
-nvidia-cufile==1.15.1.6
-nvidia-curand==10.4.0.35
-nvidia-cusolver==12.0.4.66
-nvidia-cusparse==12.6.3.3
-nvidia-cusparselt-cu13==0.8.0
-nvidia-nccl-cu13==2.28.9
-nvidia-nvjitlink==13.0.88
-nvidia-nvshmem-cu13==3.4.5
-nvidia-nvtx==13.0.85
-openai-whisper==20250625
+faster-whisper==1.2.1
+ctranslate2==4.7.2
+av==17.0.1
+onnxruntime==1.26.0
 phonemizer-fork==3.3.2
 preshed==3.0.13
 regex==2026.4.4
@@ -60,10 +51,9 @@ sympy==1.14.0
 thinc==8.3.13
 tiktoken==0.12.0
 tokenizers==0.22.2
-torch==2.11.0
+torch==2.12.0+cpu
 tqdm==4.67.3
 transformers==5.6.2
-triton==3.6.0
 typer==0.25.0
 wasabi==1.1.3
 weasel==1.0.0

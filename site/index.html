@@ -51,7 +51,7 @@ Memory:  SQLite persistent</code></pre>
         <article class="card"><h3>Model switching</h3><p>Tap a model in the dashboard. No restart. DeepSeek V4, Gemini Flash, Claude, or any Ollama model.</p></article>
         <article class="card"><h3>11 skills included</h3><p>Web research, YouTube transcription, dependency scanning, VirusTotal security scan, CVE patch research, named sessions, persistent rules, session summarization, memory search, daily digest, and goal heartbeat &mdash; all wired to Telegram and dashboard chat.</p></article>
         <article class="card"><h3>Named sessions &amp; persistent rules</h3><p>/save and /load switch conversation context by name. /rule add stores your preferences &mdash; response style, length, format &mdash; and every reply respects them automatically.</p></article>
-        <article class="card"><h3>Rate limited & OWASP reviewed</h3><p>Per-user rate limiting (20 req/60s). OWASP LLM Top 10 2025 reviewed. Prompt injection blocking. Output secret redaction. Automated smoke test included.</p></article>
+        <article class="card"><h3>Server-side safety controls</h3><p>Server-enforced dashboard rate limiting (20 req/60s), layered prompt-injection detection, output secret redaction, and automated smoke tests included.</p></article>
       </div>
     </section>
     <section class="section split">
@@ -78,7 +78,9 @@ Memory:  SQLite persistent</code></pre>
       <p>Install on any Linux system. Windows support included. You need a Telegram bot token and a Gemini or DeepSeek API key. The installer sets up all services automatically.</p>
       <div class="terminal-card" style="max-width:640px;margin:1.5rem 0">
         <div class="terminal-top"><span></span><span></span><span></span></div>
-        <pre><code>curl -fsSL https://raw.githubusercontent.com/nosistech/korvin/main/install.sh | sudo bash</code></pre>
+        <pre><code>git clone https://github.com/nosistech/korvin.git
+cd korvin
+sudo bash install.sh</code></pre>
       </div>
       <p>Start with API keys. Once running, swap in any LiteLLM-compatible model — including local Ollama — by editing one config file. No code changes, no rebuilds.</p>
     </section>
@@ -91,8 +93,8 @@ Memory:  SQLite persistent</code></pre>
       <div class="addon-grid">
         <article class="addon-card">
           <div class="addon-label">STT quality upgrade</div>
-          <h3>distil-large-v3</h3>
-          <p>Switch from tiny.en to distil-large-v3 for significantly higher transcription accuracy. Set in the dashboard under Voice settings. Requires 4 GB+ RAM &mdash; the base install runs on far less.</p>
+          <h3>distil-medium.en</h3>
+          <p>Switch from tiny.en to distil-medium.en for higher transcription accuracy. Set it in the dashboard under Voice settings. Requires about 384 MB RAM &mdash; the base install runs on far less.</p>
           <div class="addon-tag">Dashboard setting &mdash; no reinstall</div>
         </article>
         <article class="addon-card">
@@ -327,7 +329,7 @@ Memory:  SQLite persistent</code></pre>
       <div class="section-heading">
         <p class="eyebrow">Custom skills</p>
         <h2>Build your own skill in two files.</h2>
-        <p>Korvin ships with a plugin system. Drop a directory into <code>skills/</code>, define a trigger regex, and Korvin auto-loads it on the next restart &mdash; no changes to the core required.</p>
+        <p>Korvin ships with a plugin system. Drop a directory into <code>skills/</code>, define a safe literal trigger pattern, and Korvin auto-loads it on the next restart &mdash; no changes to the core required.</p>
       </div>
       <div class="split">
         <div>
@@ -335,7 +337,8 @@ Memory:  SQLite persistent</code></pre>
           <p>Each skill is a directory with two files: a <code>skill.json</code> manifest and a <code>handler.js</code> module. The manifest defines the trigger pattern and permission level. The handler receives the matched message and returns a string response.</p>
           <ul class="check-list" style="margin-top:20px">
             <li>No registration needed &mdash; auto-discovered at startup</li>
-            <li>Three permission levels: read-only, network-read, local-status</li>
+            <li>Three validated permission labels: read-only, network-read, local-status</li>
+            <li>Permissions are audit metadata; handler code still runs as the Korvin service user</li>
             <li>Path traversal blocked &mdash; handler must stay inside skill directory</li>
             <li>Errors are caught and reported &mdash; bad handlers don't crash the agent</li>
           </ul>
@@ -412,6 +415,6 @@ module.exports = { run };</code></pre>
     <p>MIT License. v1.2.0. Built by <a href="https://nosistech.com">Carlos Paredes, NosisTech LLC</a>.</p>
     <div><a href="https://nosistech.com">NosisTech</a><a href="https://github.com/nosistech/korvin">GitHub</a></div>
   </footer>
-<script>const button=document.getElementById("themeToggle");const saved=localStorage.getItem("korvin-theme");if(saved==="light"){document.body.classList.add("light");button.textContent="Dark";}button.addEventListener("click",()=>{document.body.classList.toggle("light");const isLight=document.body.classList.contains("light");button.textContent=isLight?"Dark":"Light";localStorage.setItem("korvin-theme",isLight?"light":"dark");});</script>
+  <script src="./theme.js"></script>
 </body>
 </html>

@@ -1,23 +1,36 @@
 #!/bin/bash
 set -euo pipefail
+
 BACKUP_DIR="/home/korvin/.backup-repo"
 TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
-mkdir -p "$BACKUP_DIR/snapshots/$TIMESTAMP"
+SNAPSHOT_DIR="$BACKUP_DIR/snapshots/$TIMESTAMP"
 
-# Back up activity log
+mkdir -p "$SNAPSHOT_DIR"
+
 src="/home/korvin/korvin/docs/activity.md"
-[ -e "$src" ] && cp "$src" "$BACKUP_DIR/snapshots/$TIMESTAMP/" && echo "  ✅ activity.md"
+if [ -e "$src" ]; then
+  cp "$src" "$SNAPSHOT_DIR/"
+  echo "  activity.md"
+fi
 
-# Back up logs (not memory.db — conversation history stays local only)
 src="/home/korvin/korvin/logs/"
-[ -e "$src" ] && cp -r "$src" "$BACKUP_DIR/snapshots/$TIMESTAMP/" && echo "  ✅ logs/"
+if [ -e "$src" ]; then
+  cp -r "$src" "$SNAPSHOT_DIR/"
+  echo "  logs/"
+fi
 
-# Back up active model selection only — not the full data folder
 src="/home/korvin/korvin/data/active_model.txt"
-[ -e "$src" ] && cp "$src" "$BACKUP_DIR/snapshots/$TIMESTAMP/" && echo "  ✅ active_model.txt"
+if [ -e "$src" ]; then
+  cp "$src" "$SNAPSHOT_DIR/"
+  echo "  active_model.txt"
+fi
 
 cd "$BACKUP_DIR"
 git add -A
 git commit -m "State snapshot $TIMESTAMP" 2>/dev/null || true
-git push origin main 2>/dev/null
+if ! git push origin main; then
+  echo "Backup snapshot created, but git push failed." >&2
+  exit 1
+fi
+
 echo "Backup completed."

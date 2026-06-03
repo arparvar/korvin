@@ -144,7 +144,8 @@ function registerScan(bot, deps) {
         }
       });
     } catch (err) {
-      await bot.sendMessage(msg.chat.id, `❌ Scan error: ${err.message}`);
+      console.error('Scan command error:', err);
+      await bot.sendMessage(msg.chat.id, 'Scan failed. Check the server logs for details.');
     }
   });
 }

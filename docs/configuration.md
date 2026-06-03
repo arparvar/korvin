@@ -196,6 +196,52 @@ A healthy setup should show:
 Final status: Ready
 ```
 
+## Adding STT Models
+
+The allowed STT models are defined in two places. Both must be updated together:
+
+1. **Backend allowlist** — `src/dashboard/main.py`, variable `_STT_MODEL_ALLOWLIST`:
+   ```python
+   _STT_MODEL_ALLOWLIST = {"tiny.en", "distil-medium.en"}
+   ```
+   Add the model name as a string. faster-whisper downloads it from Hugging Face on first use.
+
+2. **Frontend label** — `src/dashboard/static/index.html`, object `STT_MODEL_LABELS`:
+   ```js
+   const STT_MODEL_LABELS = {
+     'tiny.en': 'tiny.en — fastest, ~95 MB RAM (default)',
+     'distil-medium.en': 'distil-medium.en — high quality, ~384 MB RAM ⚠',
+   };
+   ```
+   Add a matching entry so the dropdown shows a human-readable label.
+
+The warning shown when a heavy model is selected is controlled by `updateSttWarning()` in the same HTML file.
+
+## Adding TTS Voices
+
+Allowed voices are defined in two places:
+
+1. **Backend allowlist** — `src/dashboard/main.py`, variable `_TTS_VOICE_ALLOWLIST`:
+   ```python
+   _TTS_VOICE_ALLOWLIST = {"bm_lewis", "bm_george", ...}
+   ```
+   Only voices supported by `hexgrad/Kokoro-82M` are valid. See the full list in the Kokoro VOICES.md.
+
+2. **Frontend label** — `src/dashboard/static/index.html`, object `TTS_VOICE_LABELS`:
+   ```js
+   const TTS_VOICE_LABELS = {
+     'bm_lewis': 'bm_lewis — British male (default)',
+     ...
+   };
+   ```
+
+The selected voice is saved to `data/tts_voice.txt` and read at TTS request time.
+
+**Requirement:** `espeak-ng` must be installed at the OS level for Kokoro to work:
+```bash
+sudo apt-get install -y espeak-ng
+```
+
 ## What korvin init Does Not Configure
 
 `korvin init` does not configure:

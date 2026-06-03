@@ -210,12 +210,13 @@ All secrets live in `/etc/korvin.env` — chmod 600, owned by root, never commit
 
 ```bash
 # /etc/korvin.env
-KORVIN_API_KEY=your_dashboard_key
+KORVIN_DASHBOARD_TOKEN=your_dashboard_login_password
+KORVIN_API_KEY=internal_random_api_key
 VIRUSTOTAL_API_KEY=your_virustotal_key
 LITELLM_MASTER_KEY=your_litellm_master_key
 ```
 
-The systemd service units load this file via `EnvironmentFile=/etc/korvin.env`. The bot and dashboard read secrets from environment variables, never from config files.
+The systemd service units load this file via `EnvironmentFile=/etc/korvin.env`. Browser login uses `KORVIN_DASHBOARD_TOKEN`; `KORVIN_API_KEY` is for internal and non-browser API callers.
 
 ---
 

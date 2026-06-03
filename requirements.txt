@@ -1,11 +1,9 @@
-# Base requirements - run this for dashboard-only
-# See requirements-voice.txt for optional voice/TTS features
-# Install: pip install -r requirements-base.txt
-fastapi==0.136.1
-httpx==0.28.1
-pydantic==2.13.3
-python-multipart==0.0.27
-requests==2.33.1
-uvicorn==0.46.0
-kokoro==0.9.4
-soundfile==0.13.1
+# Full Korvin install: dashboard + voice (TTS/STT) out of the box.
+# This is what install.sh installs.
+#
+# Want a lightweight dashboard-only box (no voice)? Install just:
+#   pip install -r requirements-base.txt
+#
+# Pins live in the two files below — edit there, not here.
+-r requirements-base.txt
+-r requirements-voice.txt

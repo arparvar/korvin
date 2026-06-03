@@ -1,17 +1,8 @@
 'use strict';
 
-const REDACTION_PATTERNS = [
-  /sk-[A-Za-z0-9]{20,}/g,
-  /Bearer [A-Za-z0-9._-]{20,}/g,
-  /bot:[0-9]+:[A-Za-z0-9_-]{30,}/g,
-  /eyJ[A-Za-z0-9._-]{20,}/g,
-];
+const { redactForLog } = require('./redaction');
 
 let installed = false;
-
-function redact(value) {
-  return REDACTION_PATTERNS.reduce((text, pattern) => text.replace(pattern, '[REDACTED]'), value);
-}
 
 function installLogRedaction() {
   if (installed) return;
@@ -20,7 +11,7 @@ function installLogRedaction() {
   ['error', 'warn', 'log'].forEach((method) => {
     const original = console[method];
     console[method] = function redactedConsoleMethod(...args) {
-      return original.apply(console, args.map((arg) => (typeof arg === 'string' ? redact(arg) : arg)));
+      return original.apply(console, args.map(redactForLog));
     };
   });
 }

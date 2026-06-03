@@ -98,7 +98,8 @@ KORVIN reads secrets from environment variables, not config files. On Windows, s
 **Option A — set user environment variables (recommended):**
 
 ```powershell
-[System.Environment]::SetEnvironmentVariable("KORVIN_API_KEY", "your_dashboard_key", "User")
+[System.Environment]::SetEnvironmentVariable("KORVIN_API_KEY", "internal_random_api_key", "User")
+[System.Environment]::SetEnvironmentVariable("KORVIN_DASHBOARD_TOKEN", "your_dashboard_password", "User")
 [System.Environment]::SetEnvironmentVariable("VIRUSTOTAL_API_KEY", "your_virustotal_key", "User")
 [System.Environment]::SetEnvironmentVariable("LITELLM_MASTER_KEY", "your_litellm_key", "User")
 ```
@@ -108,7 +109,8 @@ Close and reopen PowerShell for them to take effect.
 **Option B — set for the current session only:**
 
 ```powershell
-$env:KORVIN_API_KEY = "your_dashboard_key"
+$env:KORVIN_API_KEY = "internal_random_api_key"
+$env:KORVIN_DASHBOARD_TOKEN = "your_dashboard_password"
 $env:VIRUSTOTAL_API_KEY = "your_virustotal_key"
 $env:LITELLM_MASTER_KEY = "your_litellm_key"
 ```
@@ -221,7 +223,7 @@ Download from [nssm.cc/download](https://nssm.cc/download), extract, and add to 
 ```powershell
 nssm install KorvinBot "C:\Program Files\nodejs\node.exe" "C:\korvin\src\openclaw\telegram-bot.js"
 nssm set KorvinBot AppDirectory C:\korvin
-nssm set KorvinBot AppEnvironmentExtra KORVIN_API_KEY=your_key LITELLM_MASTER_KEY=your_key
+nssm set KorvinBot AppEnvironmentExtra KORVIN_DASHBOARD_TOKEN=your_dashboard_password KORVIN_API_KEY=internal_random_api_key LITELLM_MASTER_KEY=internal_litellm_key
 nssm start KorvinBot
 ```
 

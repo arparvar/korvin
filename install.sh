@@ -2,13 +2,18 @@
 set -Eeuo pipefail
 
 APP_USER="korvin"
+# Every channel/add-on the killswitch stops; NEVER include korvin-dashboard.service (recovery console). Future add-ons append their unit name here.
+KILLABLE_SERVICES="litellm.service korvin-egress-broker.service korvin.service"
 APP_HOME="/home/${APP_USER}"
 APP_DIR="${APP_HOME}/korvin"
 REPO_URL="${KORVIN_REPO_URL:-https://github.com/nosistech/korvin.git}"
 ENV_FILE="/etc/korvin.env"
+SKILL_USER="korvin-skill"
 LITELLM_CONFIG="${APP_HOME}/litellm_config.yaml"
 CONFIG_FILE="${APP_DIR}/config.json"
-TOTAL_STEPS=6
+TOTAL_STEPS=7
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "${SCRIPT_DIR}/scripts/install-lib.sh"
 
 step() {
   echo
@@ -25,7 +30,7 @@ require_root() {
 require_supported_os() {
   . /etc/os-release
   if [ "${ID:-}" != "ubuntu" ] && [ "${ID:-}" != "debian" ]; then
-    echo "Unsupported OS detected. Proceeding anyway ? manual verification recommended."
+    echo "Unsupported OS detected. Proceeding anyway - manual verification recommended."
   fi
 }
 
@@ -115,15 +120,7 @@ install_system_deps() {
   apt-get update
   apt-get install -y ca-certificates curl ffmpeg gnupg git python3 python3-pip python3-venv
 
-  if ! command -v node >/dev/null 2>&1 || ! node --version | grep -qE '^v(2[0-9]|[3-9][0-9])\.'; then
-    install -d -m 0755 /etc/apt/keyrings
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
-      | gpg --dearmor --yes -o /etc/apt/keyrings/nodesource.gpg
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" \
-      > /etc/apt/sources.list.d/nodesource.list
-    apt-get update
-    apt-get install -y nodejs
-  fi
+  install_node20_if_needed
 }
 
 create_app_user() {
@@ -133,14 +130,7 @@ create_app_user() {
 }
 
 clone_repo() {
-  if [ -d "${APP_DIR}/.git" ]; then
-    runuser -u "${APP_USER}" -- git -C "${APP_DIR}" pull --ff-only
-  elif [ -e "${APP_DIR}" ]; then
-    echo "${APP_DIR} exists but is not a git checkout. Move it aside and rerun this installer."
-    exit 1
-  else
-    runuser -u "${APP_USER}" -- git clone "${REPO_URL}" "${APP_DIR}"
-  fi
+  clone_or_update_repo_ff "${APP_USER}" "${APP_DIR}" "${REPO_URL}"
 }
 
 install_app_deps() {
@@ -158,6 +148,7 @@ write_env_file() {
   local gemini_api_key="$4"
   local litellm_master_key="$5"
   local korvin_api_key="$6"
+  local korvin_dashboard_token="$7"
   local korvin_model=""
 
   if [ -n "${gemini_api_key}" ]; then
@@ -172,11 +163,13 @@ TELEGRAM_BOT_TOKEN=${telegram_bot_token}
 KORVIN_CHAT_ID=${korvin_chat_id}
 DEEPSEEK_API_KEY=${deepseek_api_key}
 GEMINI_API_KEY=${gemini_api_key}
+MIMO_API_KEY=
 LITELLM_MASTER_KEY=${litellm_master_key}
 LITELLM_BASE_URL=http://127.0.0.1:4000/v1
 OPENAI_API_BASE_URL=http://127.0.0.1:4000/v1
 OPENAI_API_KEY=${litellm_master_key}
 KORVIN_API_KEY=${korvin_api_key}
+KORVIN_DASHBOARD_TOKEN=${korvin_dashboard_token}
 KORVIN_MODEL=${korvin_model}
 KORVIN_DATA_DIR=${APP_DIR}/data
 EOF
@@ -204,18 +197,33 @@ PY
 write_litellm_config() {
   cat > "${LITELLM_CONFIG}" <<'EOF'
 model_list:
-  - model_name: deepseek-v4-pro
-    litellm_params:
-      model: deepseek/deepseek-chat
-      api_key: os.environ/DEEPSEEK_API_KEY
-  - model_name: deepseek-v4-flash
-    litellm_params:
-      model: deepseek/deepseek-chat
-      api_key: os.environ/DEEPSEEK_API_KEY
   - model_name: gemini-flash
     litellm_params:
       model: gemini/gemini-2.5-flash
       api_key: os.environ/GEMINI_API_KEY
+      rpm: 60
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: deepseek/deepseek-v4-flash
+      api_key: os.environ/DEEPSEEK_API_KEY
+      rpm: 60
+  - model_name: deepseek-v4-pro
+    litellm_params:
+      model: deepseek/deepseek-v4-pro
+      api_key: os.environ/DEEPSEEK_API_KEY
+      rpm: 30
+  - model_name: mimo-v2.5
+    litellm_params:
+      model: openai/mimo-v2.5
+      api_base: https://api.xiaomimimo.com/v1
+      api_key: os.environ/MIMO_API_KEY
+      rpm: 60
+  - model_name: mimo-v2.5-pro
+    litellm_params:
+      model: openai/mimo-v2.5-pro
+      api_base: https://api.xiaomimimo.com/v1
+      api_key: os.environ/MIMO_API_KEY
+      rpm: 30
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
@@ -224,12 +232,207 @@ EOF
   chmod 600 "${LITELLM_CONFIG}"
 }
 
+create_skill_user() {
+  if ! id "${SKILL_USER}" >/dev/null 2>&1; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin "${SKILL_USER}" || return 1
+  fi
+  chmod o+x "${APP_HOME}" || return 1
+}
+
+setup_skill_firewall() {
+  local control_port="$1"
+  local proxy_port="$2"
+
+  echo "iptables-persistent iptables-persistent/autosave_v4 boolean false" | debconf-set-selections || return 1
+  echo "iptables-persistent iptables-persistent/autosave_v6 boolean false" | debconf-set-selections || return 1
+  DEBIAN_FRONTEND=noninteractive apt-get install -y iptables iptables-persistent || return 1
+
+  iptables -N KORVIN_SKILL_EGRESS 2>/dev/null || iptables -F KORVIN_SKILL_EGRESS || return 1
+  iptables -A KORVIN_SKILL_EGRESS -d 127.0.0.1 -p tcp --dport "${proxy_port}" -j ACCEPT || return 1
+  iptables -A KORVIN_SKILL_EGRESS -j REJECT --reject-with icmp-port-unreachable || return 1
+  iptables -C OUTPUT -m owner --uid-owner "${SKILL_USER}" -j KORVIN_SKILL_EGRESS 2>/dev/null \
+    || iptables -I OUTPUT -m owner --uid-owner "${SKILL_USER}" -j KORVIN_SKILL_EGRESS || return 1
+
+  ip6tables -N KORVIN_SKILL_EGRESS 2>/dev/null || ip6tables -F KORVIN_SKILL_EGRESS || return 1
+  ip6tables -A KORVIN_SKILL_EGRESS -j REJECT --reject-with icmp6-port-unreachable || return 1
+  ip6tables -C OUTPUT -m owner --uid-owner "${SKILL_USER}" -j KORVIN_SKILL_EGRESS 2>/dev/null \
+    || ip6tables -I OUTPUT -m owner --uid-owner "${SKILL_USER}" -j KORVIN_SKILL_EGRESS || return 1
+
+  if command -v netfilter-persistent >/dev/null 2>&1; then
+    netfilter-persistent save || return 1
+  else
+    mkdir -p /etc/iptables || return 1
+    iptables-save > /etc/iptables/rules.v4 || return 1
+    ip6tables-save > /etc/iptables/rules.v6 || return 1
+  fi
+
+  return 0
+}
+
+write_skill_sudoers() {
+  local NODE_BIN="/usr/bin/node"
+  local RUNNER_PATH="${APP_DIR}/src/skills/sandbox-runner.js"
+
+  # SETENV only lets korvin de-escalate into korvin-skill; korvin-skill gets no sudo rights back.
+  printf '%s ALL=(%s) NOPASSWD:SETENV: %s %s\n' "${APP_USER}" "${SKILL_USER}" "${NODE_BIN}" "${RUNNER_PATH}" > /etc/sudoers.d/korvin-skill || return 1
+  chown root:root /etc/sudoers.d/korvin-skill || return 1
+  chmod 0440 /etc/sudoers.d/korvin-skill || return 1
+  if ! visudo -cf /etc/sudoers.d/korvin-skill; then
+    rm -f /etc/sudoers.d/korvin-skill
+    return 1
+  fi
+}
+
+write_killswitch_sudoers() {
+  local SYSTEMCTL_BIN="/usr/bin/systemctl"
+  local commands="" service sep=""
+
+  for service in ${KILLABLE_SERVICES}; do
+    commands="${commands}${sep}${SYSTEMCTL_BIN} stop ${service}, ${SYSTEMCTL_BIN} start ${service}"
+    sep=", "
+  done
+
+  printf '%s ALL=(root) NOPASSWD: %s\n' "${APP_USER}" "${commands}" > /etc/sudoers.d/korvin-killswitch || return 1
+  chown root:root /etc/sudoers.d/korvin-killswitch || return 1
+  chmod 0440 /etc/sudoers.d/korvin-killswitch || return 1
+  if ! visudo -cf /etc/sudoers.d/korvin-killswitch; then
+    rm -f /etc/sudoers.d/korvin-killswitch
+    return 1
+  fi
+}
+
+disable_network_skills() {
+  runuser -u "${APP_USER}" -- /usr/bin/node -e "require('${APP_DIR}/src/capabilities/registry').seedIfMissing()" || return 1
+
+  CAPABILITIES_FILE="${APP_DIR}/data/capabilities.json" python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+
+path = Path(os.environ["CAPABILITIES_FILE"])
+data = json.loads(path.read_text(encoding="utf-8"))
+for entry in data.values() if isinstance(data, dict) else data:
+    if isinstance(entry, dict) and isinstance(entry.get("allowlist"), list) and entry["allowlist"]:
+        entry["enabled"] = False
+path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+  chown "${APP_USER}:${APP_USER}" "${APP_DIR}/data/capabilities.json" || return 1
+}
+
+configure_skill_isolation() {
+  local control_port proxy_port
+  control_port="$(pick_free_port 4100)"
+  proxy_port="$(pick_free_port $((control_port + 1)))"
+
+  local ok=1
+  if ! create_skill_user; then ok=0; fi
+  if [ "${ok}" -eq 1 ] && ! setup_skill_firewall "${control_port}" "${proxy_port}"; then ok=0; fi
+  if [ "${ok}" -eq 1 ] && ! write_skill_sudoers; then ok=0; fi
+
+  {
+    echo "KORVIN_EGRESS_CONTROL_PORT=${control_port}"
+    echo "KORVIN_EGRESS_PROXY_PORT=${proxy_port}"
+    echo "KORVIN_KILLABLE_SERVICES=\"${KILLABLE_SERVICES}\""
+  } >> "${ENV_FILE}"
+
+  if [ "${ok}" -eq 1 ]; then
+    echo "KORVIN_SKILL_USER=${SKILL_USER}" >> "${ENV_FILE}"
+    echo "Skill isolation: ENABLED (${SKILL_USER} + iptables egress lockdown, ports ${control_port}/${proxy_port})"
+  else
+    disable_network_skills || true
+    echo
+    echo "WARNING: OS skill-isolation could not be configured."
+    echo "WARNING: Network skills are DISABLED in degraded mode."
+    echo "WARNING: Read-only skills still run as ${APP_USER}; app-layer proxy controls are advisory."
+    echo
+  fi
+}
+
+install_searxng() {
+  # RAM guard: SearXNG needs ~200 MB headroom; skip if < 1.2 GB free.
+  local mem_kb
+  mem_kb=$(awk '/MemAvailable/{print $2}' /proc/meminfo) || return 1
+  if [ "${mem_kb}" -lt 1228800 ]; then
+    echo "INFO: SearXNG skipped - less than 1.2 GB RAM free (${mem_kb} kB)."
+    echo "INFO: Research skill will use DuckDuckGo lite fallback."
+    return 0
+  fi
+
+  local SEARXNG_DIR="/opt/korvin-searxng"
+  local SEARXNG_CFG="/etc/searxng/settings.yml"
+  local SEARXNG_PORT=8888
+  local SEARXNG_URL="http://127.0.0.1:${SEARXNG_PORT}"
+
+  # 1. Ensure git and python3-venv are available (idempotent).
+  apt-get install -y --no-install-recommends git python3-venv python3-dev 1>/dev/null || return 1
+
+  # 2. Clone SearXNG shallow if not already present.
+  if [ ! -d "${SEARXNG_DIR}/.git" ]; then
+    git clone --depth 1 https://github.com/searxng/searxng.git "${SEARXNG_DIR}" 1>/dev/null || return 1
+  fi
+
+  # 3. Create virtualenv and install dependencies.
+  if [ ! -d "${SEARXNG_DIR}/venv" ]; then
+    python3 -m venv "${SEARXNG_DIR}/venv" || return 1
+  fi
+  "${SEARXNG_DIR}/venv/bin/pip" install --quiet --upgrade pip 1>/dev/null || return 1
+  "${SEARXNG_DIR}/venv/bin/pip" install --quiet -r "${SEARXNG_DIR}/requirements.txt" 1>/dev/null || return 1
+  "${SEARXNG_DIR}/venv/bin/pip" install --quiet -r "${SEARXNG_DIR}/requirements-server.txt" 1>/dev/null || return 1
+
+  # 4. Write configuration.
+  mkdir -p /etc/searxng || return 1
+  local secret_key
+  secret_key=$(random_hex 32) || return 1
+  cat > "${SEARXNG_CFG}" <<YAMLEOF || return 1
+use_default_settings: true
+server:
+  secret_key: "${secret_key}"
+  bind_address: "127.0.0.1"
+  port: ${SEARXNG_PORT}
+  limiter: false
+  public_instance: false
+search:
+  formats:
+    - html
+    - json
+YAMLEOF
+  chown "${APP_USER}:${APP_USER}" "${SEARXNG_CFG}" || return 1
+  chmod 0640 "${SEARXNG_CFG}" || return 1
+  chown -R "${APP_USER}:${APP_USER}" "${SEARXNG_DIR}" || return 1
+
+  # 5. Write systemd unit.
+  cat > /etc/systemd/system/korvin-searxng.service <<EOF || return 1
+[Unit]
+Description=SearXNG private search for Korvin
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${APP_USER}
+WorkingDirectory=${SEARXNG_DIR}
+ExecStart=${SEARXNG_DIR}/venv/bin/granian --interface wsgi --host 127.0.0.1 --port ${SEARXNG_PORT} --no-ws searx.webapp:app
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  # 6. Persist the URL to the environment file read by all Korvin units.
+  echo "KORVIN_SEARXNG_URL=${SEARXNG_URL}" >> "${ENV_FILE}" || return 1
+
+  # 7. Enable and start the service.
+  systemctl daemon-reload || return 1
+  systemctl enable --now korvin-searxng.service || return 1
+}
+
 write_systemd_services() {
   cat > /etc/systemd/system/korvin.service <<EOF
 [Unit]
 Description=Korvin Telegram Bot
-After=network-online.target litellm.service
-Wants=network-online.target litellm.service
+After=network-online.target litellm.service korvin-egress-broker.service
+Wants=network-online.target litellm.service korvin-egress-broker.service
 
 [Service]
 Type=simple
@@ -237,7 +440,7 @@ User=${APP_USER}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${ENV_FILE}
 ExecStart=/usr/bin/node ${APP_DIR}/src/openclaw/telegram-bot.js
-Restart=always
+Restart=on-failure
 RestartSec=5
 
 [Install]
@@ -247,8 +450,8 @@ EOF
   cat > /etc/systemd/system/korvin-dashboard.service <<EOF
 [Unit]
 Description=Korvin FastAPI Dashboard
-After=network-online.target litellm.service
-Wants=network-online.target litellm.service
+After=network-online.target litellm.service korvin-egress-broker.service
+Wants=network-online.target litellm.service korvin-egress-broker.service
 
 [Service]
 Type=simple
@@ -256,6 +459,27 @@ User=${APP_USER}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${ENV_FILE}
 ExecStart=${APP_DIR}/venv/bin/uvicorn src.dashboard.main:app --host 127.0.0.1 --port 3002
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  cat > /etc/systemd/system/korvin-egress-broker.service <<EOF
+[Unit]
+Description=Korvin Egress Broker
+After=network-online.target
+Wants=network-online.target
+Before=korvin.service korvin-dashboard.service
+
+[Service]
+Type=simple
+User=${APP_USER}
+Group=${APP_USER}
+WorkingDirectory=${APP_DIR}
+EnvironmentFile=${ENV_FILE}
+ExecStart=/usr/bin/node ${APP_DIR}/src/skills/egress-broker.js
 Restart=always
 RestartSec=5
 
@@ -286,7 +510,7 @@ EOF
 
 start_services() {
   systemctl daemon-reload
-  systemctl enable --now litellm.service korvin-dashboard.service korvin.service
+  systemctl enable --now korvin-egress-broker.service litellm.service korvin-dashboard.service korvin.service
 }
 
 main() {
@@ -296,9 +520,10 @@ main() {
   read_optional_telegram_token
   read_optional_chat_id
   read_llm_key
-  KORVIN_API_KEY=$(openssl rand -hex 16 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(16))")
-  LITELLM_MASTER_KEY=$(openssl rand -hex 32 2>/dev/null || python3 -c "import secrets; print(secrets.token_hex(32))")
-  echo "Dashboard key and internal LiteLLM key: auto-generated"
+  read_secret "Dashboard login password (12+ chars recommended)" KORVIN_DASHBOARD_TOKEN
+  KORVIN_API_KEY=$(random_hex 16)
+  LITELLM_MASTER_KEY=$(random_hex 32)
+  echo "Internal API key and LiteLLM key: auto-generated"
 
   step 1 "Checking and installing system dependencies"
   install_system_deps
@@ -314,15 +539,31 @@ main() {
     printf "deepseek-v4-pro" > "${APP_DIR}/data/active_model.txt"
   fi
   chown "${APP_USER}:${APP_USER}" "${APP_DIR}/data/active_model.txt"
+  runuser -u "${APP_USER}" -- /usr/bin/node -e "require('${APP_DIR}/src/capabilities/registry').seedIfMissing()" || true
   step 4 "Writing configuration"
-  write_env_file "${TELEGRAM_BOT_TOKEN}" "${KORVIN_CHAT_ID}" "${DEEPSEEK_API_KEY}" "${GEMINI_API_KEY}" "${LITELLM_MASTER_KEY}" "${KORVIN_API_KEY}"
+  write_env_file "${TELEGRAM_BOT_TOKEN}" "${KORVIN_CHAT_ID}" "${DEEPSEEK_API_KEY}" "${GEMINI_API_KEY}" "${LITELLM_MASTER_KEY}" "${KORVIN_API_KEY}" "${KORVIN_DASHBOARD_TOKEN}"
   write_config_json "${TELEGRAM_BOT_TOKEN}"
   write_litellm_config
+  configure_skill_isolation
+  if ! write_killswitch_sudoers; then
+    echo
+    echo "WARNING: Hard killswitch sudoers could not be configured."
+    echo "WARNING: Hard service stop/start is unavailable in degraded mode."
+    echo "WARNING: The soft read-only killswitch flag still applies."
+    echo
+  fi
+  step 5 "Installing SearXNG (private search)"
+  if ! install_searxng; then
+    echo
+    echo "WARNING: SearXNG could not be installed."
+    echo "WARNING: Research skill will use DuckDuckGo lite fallback."
+    echo
+  fi
   write_systemd_services
-  step 5 "Starting services"
+  step 6 "Starting services"
   start_services
 
-  step 6 "Complete"
+  step 7 "Complete"
   SERVER_IP=$(detect_server_ip)
   echo
   echo "=============================="
@@ -330,7 +571,7 @@ main() {
   echo "=============================="
   echo
   echo "Dashboard: http://${SERVER_IP}:3002"
-  echo "Dashboard key: ${KORVIN_API_KEY}"
+  echo "Dashboard login: use the password you entered during install"
   echo
   echo "To check services:"
   echo "  systemctl status korvin-dashboard.service"

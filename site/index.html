@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>KORVIN | Self-hosted AI agent for entry-level machines.</title>
-  <meta name="description" content="KORVIN is a personal AI agent you host yourself. Voice, memory, model switching, web research, and security scans. Telegram and dashboard chat. Runs on entry-level hardware." />
+  <title>KORVIN | Your self-hosted AI agent, run from one private dashboard.</title>
+  <meta name="description" content="KORVIN is a personal AI agent you host yourself, managed from one private dashboard — voice, memory, model switching, skills, and security scans. Telegram and other channels optional. Runs on entry-level hardware." />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -22,9 +22,9 @@
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow">Open-source. Self-hosted. No lock-in. v1.2.0</p>
-        <h1>Self-hosted AI agents for entry-level machines.</h1>
-        <p class="hero-subtitle">Voice-first. Memory-persistent. Model-agnostic. No lock-in.</p>
-        <p class="hero-text">KORVIN is a personal AI agent that runs on your own machine. Start with API keys. Graduate to fully self-hosted local models. Your data never leaves your infrastructure.</p>
+        <h1>Your AI agent, run from one private dashboard.</h1>
+        <p class="hero-subtitle">Dashboard-first. Memory-persistent. Model-agnostic. No lock-in.</p>
+        <p class="hero-text">KORVIN is a personal AI agent that runs on your own machine and answers from one private dashboard — voice, memory, skills, and model switching in a browser. Telegram and other channels are optional. Your data never leaves your infrastructure.</p>
         <div class="cta-row">
           <a class="button primary" href="https://github.com/nosistech/korvin/blob/main/quickstart.md">Get Started</a>
           <a class="button secondary" href="https://github.com/nosistech/korvin">View on GitHub</a>
@@ -32,11 +32,12 @@
       </div>
       <div class="terminal-card" aria-label="Live system status">
         <div class="terminal-top"><span></span><span></span><span></span></div>
-        <pre><code>Agent:   running
-Model:   DeepSeek / Gemini via LiteLLM
-Channel: Telegram active
-Voice:   Whisper STT + Kokoro TTS
-Memory:  SQLite persistent</code></pre>
+        <pre><code>Agent:     running
+Dashboard: live (Cloudflare Access)
+Channels:  dashboard + Telegram
+Model:     DeepSeek / Gemini via LiteLLM
+Voice:     Whisper STT + Kokoro TTS
+Memory:    SQLite persistent</code></pre>
       </div>
     </section>
     <section class="section">
@@ -45,13 +46,14 @@ Memory:  SQLite persistent</code></pre>
         <h2>A full agent stack, built to run light.</h2>
       </div>
       <div class="grid">
-        <article class="card"><h3>Telegram interface</h3><p>Send text or voice messages. Korvin replies in text or speaks back.</p></article>
+        <article class="card"><h3>Private dashboard</h3><p>Run the whole agent from one browser tab &mdash; chat, switch models, browse memory, watch system health, and freeze the agent instantly. Protected by Cloudflare Access. Works on phone or desktop.</p></article>
+        <article class="card"><h3>Channels &mdash; dashboard &amp; Telegram</h3><p>Answer from the dashboard, or send text and voice messages over Telegram and get replies in text or speech. More channels are on the roadmap.</p></article>
         <article class="card"><h3>Voice — STT + TTS included</h3><p>Send a voice message, get a spoken reply. Faster-Whisper tiny.en transcribes speech (~95 MB RAM). Kokoro TTS (bm_lewis) generates voice replies. Both installed automatically — no extra setup.</p></article>
         <article class="card"><h3>Persistent memory</h3><p>Every conversation stored in SQLite. Sliding window keeps the agent alive forever.</p></article>
         <article class="card"><h3>Model switching</h3><p>Tap a model in the dashboard. No restart. DeepSeek V4, Gemini Flash, Claude, or any Ollama model.</p></article>
         <article class="card"><h3>11 skills included</h3><p>Web research, YouTube transcription, dependency scanning, VirusTotal security scan, CVE patch research, named sessions, persistent rules, session summarization, memory search, daily digest, and goal heartbeat &mdash; all wired to Telegram and dashboard chat.</p></article>
         <article class="card"><h3>Named sessions &amp; persistent rules</h3><p>/save and /load switch conversation context by name. /rule add stores your preferences &mdash; response style, length, format &mdash; and every reply respects them automatically.</p></article>
-        <article class="card"><h3>Server-side safety controls</h3><p>Server-enforced dashboard rate limiting (20 req/60s), layered prompt-injection detection, output secret redaction, and automated smoke tests included.</p></article>
+        <article class="card"><h3>Defense-in-depth security</h3><p>SSRF guard on every outbound request (blocks private and local addresses), an allow-listed egress broker for skills, a sandboxed skill runner, server-enforced rate limiting (20 req/60s), layered prompt-injection detection, secret redaction in output and logs, and automated smoke tests.</p></article>
       </div>
     </section>
     <section class="section split">

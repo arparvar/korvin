@@ -34,10 +34,15 @@ docs/activity.md
 docs/specs/
 
 # --- Internal build artifacts (Codex prompts/logs, file backups) ---
-*.c4bak
-c4-codex*
+*.c?bak
+c[0-9]-codex*
+*-codex-*.log
+*-codex-*.txt
 docs/codex-*
 
 # --- R&D / forward-strategy docs (kept internal until shipped) ---
 docs/model-delegation-design.md
 docs/tool-call-repair-pattern.md
+
+# --- Internal planning / bug tracker (canonical copy lives here but stays private) ---
+docs/v2-feature-backlog.md
